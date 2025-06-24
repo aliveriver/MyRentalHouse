@@ -6,36 +6,36 @@ export const constantRoutes = [
   {
     path: "/",
     component: () => import("../views/home/index.vue"),
-    meta: { title: "首页", icon: "HomeFilled" }
+    meta: { title: "首页", icon: "HomeFilled" },
   },
   {
     path: "classify",
     component: () => import("../views/classify/index.vue"),
-    meta: { title: "分类管理", icon: "Histogram" }
+    meta: { title: "分类管理", icon: "Histogram" },
   },
   {
     path: "commodity",
     component: () => import("../views/commodity/index.vue"),
-    meta: { title: "商品管理", icon: "Briefcase" }
+    meta: { title: "商品管理", icon: "Briefcase" },
   },
   {
     path: "person",
     component: () => import("../views/person/index.vue"),
-    meta: { title: "个人中心", icon: "Setting" }
+    meta: { title: "个人中心", icon: "Setting" },
   },
   {
     path: "houseMap",
     component: () => import("../views/house/map/index.vue"),
-    meta: { title: "地图" }
+    meta: { title: "地图" },
   },
-]
+];
 
 export const routes = [
   { path: "/login", component: () => import("../views/login/index.vue") },
-  { 
-    path: "/", 
+  {
+    path: "/",
     component: Layout,
-    children: constantRoutes
+    children: constantRoutes,
   },
 ];
 
@@ -53,4 +53,4 @@ const router = createRouter({
 //   }
 // }))
 
-export default router
+export default router;

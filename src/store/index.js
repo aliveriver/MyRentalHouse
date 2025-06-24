@@ -13,11 +13,11 @@ export default defineStore({
     },
     setRoutes(route) {
       this.route = route;
-    }
+    },
   },
   getters: {
     getRoutes() {
       return this.routes;
-    }
-  }
+    },
+  },
 });
