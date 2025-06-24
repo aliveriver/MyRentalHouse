@@ -1,5 +1,20 @@
 <template>
   <div class="map-container" v-loading="isLoading">
+    <div class="search-box">
+      <el-input
+        v-model="inputVal"
+        placeholder="输入.."
+        class="search-input"
+        @keydown.enter="inputSearchHandler"
+      >
+        <template #append>
+          <el-button :icon="Search" @click="inputSearchHandler" />
+        </template>
+      </el-input>
+      <div class="search-result" v-if="inputVal.length">
+        <div class="search-item" v-for="item in 10">{{ item }}</div>
+      </div>
+    </div>
     <div id="container" :style="`height: ${mapHW.height}`" ref="mapRef"></div>
   </div>
 </template>
@@ -9,7 +24,9 @@ import AMapLoader from "@amap/amap-jsapi-loader";
 import { onMounted, onUnmounted, reactive, ref } from "vue";
 import { key_web_js } from "./config.js";
 import { ElMessage } from "element-plus";
+import { Search } from "@element-plus/icons-vue";
 
+const isLoading = ref(false);
 const mapRef = ref(null);
 const mapHW = reactive({
   width: "100%",
@@ -27,8 +44,15 @@ let AMap = null; // 高德地图对象
 let map = null; // 地图实例
 let geolocation = null; // 定位对象
 let geocoder = null; // 地理编码对象
+let placeSearch = null; // 地点搜索对象
 
-const isLoading = ref(false);
+const inputVal = ref("");
+function inputSearchHandler() {
+  const value = inputVal.value.trim();
+  placeSearch.search(value, (status, result) => {
+    console.log(status, result, "地理搜索结果");
+  });
+}
 
 onMounted(() => {
   const { top } = mapRef.value?.getBoundingClientRect();
@@ -42,11 +66,15 @@ onMounted(() => {
       "AMap.Scale", // 比例尺
       "AMap.DistrictLayer", // 定位
       "AMap.Geocoder", // 地理编码
+      "AMap.PlaceSearch", // 地点搜索
     ],
   }).then((mapItem) => {
     AMap = mapItem;
     // 获取当前设备定位
-    map = new AMap.Map("container");
+    map = new AMap.Map("container", {
+      resizeEnable: true, //是否监控地图容器尺寸变化
+      zoom: 6, //初始地图级别
+    });
     map.plugin("AMap.Geolocation", function () {
       isLoading.value = true;
       geolocation = new AMap.Geolocation({
@@ -124,6 +152,11 @@ onMounted(() => {
         });
       });
     });
+
+    // 地图搜索
+    placeSearch = new AMap.PlaceSearch({
+      map: map,
+    });
     mapItem.Geolocation();
   });
 });
@@ -138,5 +171,34 @@ onUnmounted(() => {
 <style lang="scss" scoped>
 .map-container {
   position: relative;
+}
+
+.search-box {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  width: 300px;
+  .search-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .search-result {
+    position: absolute;
+    top: 30px;
+    width: 100%;
+    height: fit-content;
+    background-color: #fefefee0;
+    border: 1px solid #ccc;
+    .search-item {
+      padding: 2px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      &:hover {
+        background-color: #eee;
+      }
+    }
+  }
 }
 </style>
