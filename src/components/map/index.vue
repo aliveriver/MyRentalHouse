@@ -19,7 +19,11 @@
         </template>
       </el-input>
       <div class="search-result" v-if="resultList.length">
-        <div class="search-item" v-for="item in resultList">
+        <div
+          class="search-item"
+          v-for="item in resultList"
+          @click="clickAddressItem(item)"
+        >
           <el-icon><CaretRight /></el-icon>
           <div>
             <p>{{ item.address }}</p>
@@ -76,6 +80,31 @@ function inputSearchHandler() {
 }
 function inputClearHandler() {
   resultList.value = [];
+}
+// 点击搜索项
+function clickAddressItem(address) {
+  const { location } = address;
+  if (location) {
+    map.setCenter([location.lng, location.lat]); // 设置地图缩放级别和中心点
+    map.clearInfoWindow(); // 清除之前的气泡面板
+    // 创建自定义 InfoWindow（气泡面板）
+    const infoWindow = new AMap.InfoWindow({
+      content: `
+        <div style="font-size: 14px;">
+          <strong>当前位置：</strong><br/>
+          ${address.address}<br/>
+          ${address.cityname + address.adname}（${address.adcode}）
+        </div>
+      `,
+      offset: new AMap.Pixel(0, -30),
+    });
+    infoWindow.open(map, lnglat);
+  } else {
+    ElMessage({
+      type: "warning",
+      message: "未找到位置信息",
+    });
+  }
 }
 
 onMounted(() => {
