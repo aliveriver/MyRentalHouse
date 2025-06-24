@@ -4,7 +4,12 @@
       <el-header class="header">
         <h2>微商城后台管理系统</h2>
         <el-dropdown v-if="store.isLogin">
-          <div><el-avatar :size="44" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png" /></div>
+          <div>
+            <el-avatar
+              :size="44"
+              src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"
+            />
+          </div>
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item @click="logout">退出</el-dropdown-item>
@@ -12,43 +17,21 @@
           </template>
         </el-dropdown>
         <router-link to="/login" v-else class="toLogin">登录</router-link>
-        
       </el-header>
       <el-container>
         <el-aside class="aside">
           <el-menu class="menu">
-            <el-menu-item index="1">
-              <router-link to="/">
+            <router-link
+              v-for="(item, index) in constantRoutes"
+              :to="item.path"
+            >
+              <el-menu-item :index="index">
                 <el-icon>
-                  <HomeFilled />
+                  <component :is="item.meta.icon"></component>
                 </el-icon>
-                <span>首页</span>
-              </router-link>
-            </el-menu-item>
-            <el-menu-item index="2">
-              <router-link to="/classify">
-                <el-icon>
-                  <Histogram />
-                </el-icon>
-                <span>分类管理</span>
-              </router-link>
-            </el-menu-item>
-            <el-menu-item index="3">
-              <router-link to="/commodity">
-                <el-icon>
-                  <Briefcase />
-                </el-icon>
-                <span>商品管理</span>
-              </router-link>
-            </el-menu-item>
-            <el-menu-item index="4">
-              <router-link to="/person">
-                <el-icon>
-                  <Setting />
-                </el-icon>
-                <span>个人中心</span>
-              </router-link>
-            </el-menu-item>
+                <span>{{ item.meta.title }}</span>
+              </el-menu-item>
+            </router-link>
           </el-menu>
         </el-aside>
         <el-main class="main">
@@ -60,15 +43,16 @@
 </template>
 
 <script setup>
-import useStore from "../store/index"
-import { useRouter } from "vue-router"
+import useStore from "../store/index";
+import { useRouter } from "vue-router";
+import { constantRoutes } from "@/routers";
 const router = useRouter();
-const store = useStore()
+const store = useStore();
 
 const logout = () => {
-  store.setIsLogin(false)
-  router.push("/login")
-}
+  store.setIsLogin(false);
+  router.push("/login");
+};
 </script>
 
 <style lang="scss" scoped>

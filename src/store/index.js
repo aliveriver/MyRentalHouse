@@ -3,12 +3,21 @@ export default defineStore({
   id: "index",
   state: () => {
     return {
-      isLogin: false
+      isLogin: false,
+      routes: [],
     };
   },
   actions: {
     setIsLogin(value) {
       this.isLogin = value;
+    },
+    setRoutes(route) {
+      this.route = route;
+    }
+  },
+  getters: {
+    getRoutes() {
+      return this.routes;
     }
   }
 });
