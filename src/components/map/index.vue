@@ -6,17 +6,26 @@
   >
     <div class="search-box">
       <el-input
+        size="large"
         v-model="inputVal"
         placeholder="输入.."
         class="search-input"
+        clearable
         @keydown.enter="inputSearchHandler"
+        @clear="inputClearHandler"
       >
         <template #append>
           <el-button :icon="Search" @click="inputSearchHandler" />
         </template>
       </el-input>
-      <div class="search-result" v-if="inputVal.length">
-        <div class="search-item" v-for="item in 10">{{ item }}</div>
+      <div class="search-result" v-if="resultList.length">
+        <div class="search-item" v-for="item in resultList">
+          <el-icon><CaretRight /></el-icon>
+          <div>
+            <p>{{ item.address }}</p>
+            <p>{{ item.cityname + item.adname + `（${item.adcode}）` }}</p>
+          </div>
+        </div>
       </div>
     </div>
     <div id="container" :style="`height: ${mapHW.height}`" ref="mapRef"></div>
@@ -51,11 +60,22 @@ let geocoder = null; // 地理编码对象
 let placeSearch = null; // 地点搜索对象
 
 const inputVal = ref("");
+const resultList = ref([]);
 function inputSearchHandler() {
   const value = inputVal.value.trim();
   placeSearch.search(value, (status, result) => {
     console.log(status, result, "地理搜索结果");
+    if (status !== "complete") {
+      ElMessage({
+        type: "error",
+        message: "搜索失败",
+      });
+    }
+    resultList.value = result.poiList.pois;
   });
+}
+function inputClearHandler() {
+  resultList.value = [];
 }
 
 onMounted(() => {
@@ -150,17 +170,31 @@ function useMapClick(AMap, map, geocoder) {
       console.log(status, result, "逆地理编码结果");
       if (status === "complete" && result.regeocode) {
         const addressComponent = result.regeocode.addressComponent;
-        const formatted = result.regeocode.formattedAddress;
-        const neighborhood = addressComponent.neighborhood.name || "未知小区";
-        console.log(neighborhood, "?");
+        const {
+          province,
+          district,
+          street,
+          township,
+          neighborhood,
+          streetNumber,
+          adcode,
+        } = addressComponent;
+        console.log(result, "逆地理地址解析");
 
         // 创建自定义 InfoWindow（气泡面板）
         const infoWindow = new AMap.InfoWindow({
           content: `
                 <div style="font-size: 14px;">
                   <strong>当前位置：</strong><br/>
-                  ${formatted}<br/>
-                  <strong>小区：</strong>${neighborhood}
+                  ${
+                    province +
+                    district +
+                    street +
+                    township +
+                    neighborhood +
+                    streetNumber +
+                    `（${adcode}）`
+                  }<br/>
                 </div>
               `,
           offset: new AMap.Pixel(0, -30),
@@ -178,6 +212,9 @@ onUnmounted(() => {
   map.clearInfoWindow(); // 清除地图上的信息窗体
   map.destroy(); // 销毁地图，释放内存
   map = null;
+  geolocation = null;
+  geocoder = null;
+  placeSearch = null;
 });
 </script>
 
@@ -199,15 +236,21 @@ onUnmounted(() => {
   }
   .search-result {
     position: absolute;
-    top: 30px;
+    top: 40px;
     width: 100%;
     height: fit-content;
+    color: #333;
     background-color: #fefefee0;
     border: 1px solid #ccc;
     .search-item {
-      padding: 2px 10px;
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
       font-size: 14px;
       cursor: pointer;
+      div {
+        margin-left: 12px;
+      }
       &:hover {
         background-color: #eee;
       }
