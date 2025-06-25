@@ -40,31 +40,31 @@
             </div>
           </template>
           <el-form
-            :model="profileForm"
+            :model="displayForm"
             label-width="100px"
             class="profile-form"
           >
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="姓名">
-                  <el-input v-model="profileForm.name" />
+                  <el-input v-model="displayForm.name" />
                 </el-form-item>
               </el-col>
               <el-col :span="12">
                 <el-form-item label="工号">
-                  <el-input v-model="profileForm.employeeId" disabled />
+                  <el-input v-model="displayForm.employeeId" disabled />
                 </el-form-item>
               </el-col>
             </el-row>
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="手机号">
-                  <el-input v-model="profileForm.phone" />
+                  <el-input v-model="displayForm.phone" />
                 </el-form-item>
               </el-col>
               <el-col :span="12">
                 <el-form-item label="邮箱">
-                  <el-input v-model="profileForm.email" />
+                  <el-input v-model="displayForm.email" />
                 </el-form-item>
               </el-col>
             </el-row>
@@ -72,7 +72,7 @@
               <el-col :span="12">
                 <el-form-item label="部门">
                   <el-select
-                    v-model="profileForm.department"
+                    v-model="displayForm.department"
                     style="width: 100%"
                   >
                     <el-option label="房源管理部" value="house" />
@@ -83,13 +83,13 @@
               </el-col>
               <el-col :span="12">
                 <el-form-item label="角色">
-                  <el-input v-model="profileForm.role" disabled />
+                  <el-input v-model="displayForm.role" disabled />
                 </el-form-item>
               </el-col>
             </el-row>
             <el-form-item label="个人简介">
               <el-input
-                v-model="profileForm.bio"
+                v-model="displayForm.bio"
                 type="textarea"
                 :rows="3"
                 placeholder="请输入个人简介"
@@ -176,13 +176,17 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import usersApi from '@/api/users'
 
 const passwordFormRef = ref(null)
 
-// 个人信息表单
-const profileForm = reactive({
+ // 当前用户ID，实际应该从登录状态获取
+const currentUserId = ref('1')
+
+// 用于显示的表单数据
+const displayForm = reactive({
   name: '张三',
   employeeId: 'EMP001',
   phone: '13800138000',
@@ -257,30 +261,89 @@ const loginLogs = ref([
   }
 ])
 
-// 方法
-const saveProfile = () => {
-  ElMessage.success('个人信息保存成功')
+// 获取用户信息
+const getUserInfo = async () => {
+  try {
+    const response = await usersApi.getUserById(currentUserId.value)
+    if (response) {
+      // 更新个人信息表单
+      Object.assign(displayForm, response)
+
+      // 更新显示表单
+      Object.assign(displayForm, {
+        name: response.username || '未设置',
+        employeeId: `USER${response.id || '000'}`,
+        phone: response.phonenumber || '未设置',
+        email: response.email || '未设置',
+        department: "IT部",
+        role: getRoleText(response.role),
+        bio: '负责房源管理系统的日常维护和数据管理工作'
+      })
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    ElMessage.error('获取用户信息失败')
+  }
+}
+
+// 根据角色获取文本
+const getRoleText = (role) => {
+  const roleMap = {
+    '1': '普通用户',
+  }
+  return roleMap[role] || '普通用户'
+}
+
+const saveProfile = async () => {
+  try {
+    // 准备更新数据
+    const updateData = {
+      username: displayForm.name,
+      email: displayForm.email,
+      phonenumber: displayForm.phone,
+      role: "1"
+    }
+
+    const response = await usersApi.updateUser(currentUserId.value, updateData)
+    if (response) {
+      ElMessage.success('个人信息保存成功')
+      // 重新获取用户信息
+      await getUserInfo()
+    }
+  } catch (error) {
+    console.error('保存用户信息失败:', error)
+    ElMessage.error('保存信息失败')
+  }
 }
 
 const resetProfile = () => {
-  // 重置到初始值
-  Object.assign(profileForm, {
-    name: '张三',
-    employeeId: 'EMP001',
-    phone: '13800138000',
-    email: 'admin@example.com',
-    department: 'house',
-    role: '系统管理员',
-    bio: '负责房源管理系统的日常维护和数据管理工作'
-  })
+  // 重新获取用户信息
+  getUserInfo()
   ElMessage.info('已重置到初始状态')
 }
 
-const changePassword = () => {
-  passwordFormRef.value.validate((valid) => {
+const changePassword = async () => {
+  passwordFormRef.value.validate(async (valid) => {
     if (valid) {
-      ElMessage.success('密码修改成功')
-      resetPasswordForm()
+      try {
+        const passwordData = {
+          username: "",
+          password: passwordForm.newPassword,
+          email: "",
+          phonenumber: "",
+          registrationtime: "",
+          role: "",
+        }
+
+        const response = await usersApi.changePassword(currentUserId.value, passwordData)
+        if (response) {
+          ElMessage.success('密码修改成功')
+          resetPasswordForm()
+        }
+      } catch (error) {
+        console.error('修改密码失败:', error)
+        ElMessage.error('密码修改失败')
+      }
     } else {
       ElMessage.error('请检查输入信息')
     }
@@ -295,6 +358,11 @@ const resetPasswordForm = () => {
   })
   passwordFormRef.value?.clearValidate()
 }
+
+// 组件挂载时获取用户信息
+onMounted(() => {
+  getUserInfo()
+})
 </script>
 
 <style lang="scss" scoped>

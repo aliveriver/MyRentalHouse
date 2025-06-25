@@ -2,40 +2,6 @@ import request from './request'
 
 // 用户相关接口
 const usersApi = {
-  // 用户登录
-  login(loginData) {
-    return request({
-      url: '/auth/login',
-      method: 'post',
-      data: loginData
-    })
-  },
-
-  // 用户注册
-  register(registerData) {
-    return request({
-      url: '/auth/register',
-      method: 'post',
-      data: registerData
-    })
-  },
-
-  // 用户退出登录
-  logout() {
-    return request({
-      url: '/auth/logout',
-      method: 'post'
-    })
-  },
-
-  // 获取当前用户信息
-  getCurrentUser() {
-    return request({
-      url: '/auth/me',
-      method: 'get'
-    })
-  },
-
   // 创建用户
   createUser(userData) {
     return request({
@@ -79,10 +45,19 @@ const usersApi = {
   },
 
   
-  // 修改密码
+  /**
+   * 修改用户
+   * @param {string} passwordData.username - 用户ID
+   * @param {string} passwordData.password - 用户新密码
+   * @param {string} passwordData.email - 用户新email
+   * @param {string} passwordData.phonenumber - 用户手机
+   * @param {string} passwordData.registrationtime - 时间
+   * @param {string} passwordData.role - ？？？？
+   * 
+   */
   changePassword(userid, passwordData) {
     return request({
-      url: `/users/${userid}/password`,
+      url: `/users/${userid}`,
       method: 'put',
       data: passwordData
     })
