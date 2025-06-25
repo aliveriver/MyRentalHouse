@@ -5,6 +5,7 @@ export default defineStore({
     return {
       isLogin: false,
       routes: [],
+      userInfo: null,
     };
   },
   actions: {
@@ -14,10 +15,21 @@ export default defineStore({
     setRoutes(route) {
       this.route = route;
     },
+    setUserInfo(userInfo) {
+      this.userInfo = userInfo;
+    },
+    logout() {
+      this.isLogin = false;
+      this.userInfo = null;
+      localStorage.removeItem('token');
+    },
   },
   getters: {
     getRoutes() {
       return this.routes;
+    },
+    getUserInfo() {
+      return this.userInfo;
     },
   },
 });
