@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from "vue-router";
+import useStore from "../store/index";
 
 import Layout from "../views/Layout.vue";
 
@@ -68,6 +69,7 @@ export const constantRoutes = (() => {
 
 export const routes = [
   { path: "/login", component: () => import("../views/login/index.vue") },
+  { path: "/register", component: () => import("../views/register/index.vue") },
   {
     path: "/",
     component: Layout,
@@ -80,13 +82,55 @@ const router = createRouter({
   routes,
 });
 
-// router.beforeEach(((to, from, next) => {
-//   const w = ["/login"];
-//   const store = useStore()
-//   if (!store.isLogin && !w.includes(to.path)) {
-//     next("/login")
-//     return
-//   }
-// }))
+// 路由守卫
+router.beforeEach((to, from, next) => {
+  const whiteList = ["/login", "/register"]; // 白名单，不需要登录即可访问
+  const store = useStore();
+  
+  // 检查token是否存在
+  const token = localStorage.getItem('token');
+  
+  // 检查记住密码功能
+  const rememberMe = localStorage.getItem('rememberMe');
+  const rememberUntil = localStorage.getItem('rememberUntil');
+  
+  if (token) {
+    // 如果有token，检查是否过期（针对记住密码功能）
+    if (rememberMe && rememberUntil) {
+      if (Date.now() > parseInt(rememberUntil)) {
+        // 记住密码已过期，清除相关数据
+        localStorage.removeItem('token');
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('rememberUntil');
+        store.logout();
+        
+        if (!whiteList.includes(to.path)) {
+          next("/login");
+          return;
+        }
+      }
+    }
+    
+    // 设置登录状态
+    store.setIsLogin(true);
+    
+    // 如果已登录用户访问登录页，重定向到首页
+    if (to.path === "/login") {
+      next("/");
+      return;
+    }
+  } else {
+    // 没有token，清除登录状态
+    store.setIsLogin(false);
+    
+    // 如果访问的不是白名单页面，重定向到登录页
+    if (!whiteList.includes(to.path)) {
+      next("/login");
+      return;
+    }
+  }
+  
+  next();
+});
 
 export default router;
