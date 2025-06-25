@@ -17,7 +17,7 @@
             :to="item.path"
             :key="index"
           >
-            <el-menu-item :index="index">
+            <el-menu-item :index="index" v-if="!item.meta.isHidden">
               <el-icon>
                 <component :is="item.meta.icon"></component>
               </el-icon>

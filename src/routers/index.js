@@ -11,17 +11,17 @@ export const constantRoutes = [
   {
     path: "/house/list",
     component: () => import("../views/house/list/index.vue"),
-    meta: { title: "房源列表" }
+    meta: { title: "房源列表", icon: "House" },
   },
   {
     path: "/house/add",
     component: () => import("../views/house/list/add.vue"),
-    meta: { title: "房源编辑" }
+    meta: { title: "房源编辑", isHidden: true }
   },
   {
     path: "/house/detail/:id",
     component: () => import("../views/house/detail/index.vue"),
-    meta: { title: "房源详情" }
+    meta: { title: "房源详情", isHidden: true }
   },
   {
     path: "/houseMap",
