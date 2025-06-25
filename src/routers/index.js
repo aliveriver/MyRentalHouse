@@ -48,9 +48,14 @@ export const constantRoutes = (() => {
 
   const userRoutes = [
     {
+      path: "/house/info",
+      component: () => import("../views/house/info/index.vue"),
+      meta: { title: "房源资讯", icon: "Tickets" },
+    },
+    {
       path: "/house/detail/:id",
       component: () => import("../views/house/detail/index.vue"),
-      meta: { title: "房源详情" }
+      meta: { title: "房源详情", isHidden: true }
     },
     {
       path: "/person",
