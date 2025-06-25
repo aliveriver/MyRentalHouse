@@ -53,10 +53,9 @@
           >
             登录
           </el-button>
-
           <div class="form-footer">
             <span class="forgot-password">忘记密码</span>
-            <span class="register-link">注册账号</span>
+            <span class="register-link" @click="goToRegister">注册账号</span>
           </div>
         </el-form>
       </div>
@@ -65,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router"
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
@@ -79,9 +78,11 @@ const rememberMe = ref(false)
 const rules = {
   username: [
     { required: true, message: '请输入账号', trigger: 'blur' },
+    { min: 3, max: 20, message: '账号长度应为3-20个字符', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度应为6-20个字符', trigger: 'blur' }
   ],
 }
 
@@ -92,19 +93,64 @@ const form = ref({
 })
 
 const onSubmit = async () => {
-  await formRef.value.validate((valid, fields) => {
+  await formRef.value.validate(async (valid, fields) => {
     if (valid) {
-      loading.value = true
-      // 模拟登录延迟
-      setTimeout(() => {
-        store.setIsLogin(true)
-        ElMessage.success('登录成功')
-        router.push("/")
+      try {
+        loading.value = true
+          // 调用登录API
+        const response = null;
+
+        // 登录成功，保存token和用户信息
+        if (response.token) {
+          localStorage.setItem('token', response.token)
+
+          // 如果勾选了记住密码，设置更长的过期时间
+          if (rememberMe.value) {
+            localStorage.setItem('rememberMe', 'true')
+            localStorage.setItem('rememberUntil', Date.now() + 7 * 24 * 60 * 60 * 1000) // 7天
+          }
+
+          // 保存用户信息到store
+          store.setIsLogin(true)
+          if (response.user) {
+            store.setUserInfo(response.user)
+          }
+
+          ElMessage.success('登录成功')
+          router.push("/")
+        } else {
+          ElMessage.error('登录失败，请检查用户名和密码')
+        }
+
+      } catch (error) {
+        console.error('Login error:', error)
+        ElMessage.error(error.message || '登录失败，请检查用户名和密码')
+      } finally {
         loading.value = false
-      }, 1000)
+      }
     }
   })
 }
+
+// 跳转到注册页面
+const goToRegister = () => {
+  router.push('/register')
+}
+
+// 检查是否已经登录
+const checkLoginStatus = () => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    // 如果已经有token，直接跳转到首页
+    store.setIsLogin(true)
+    router.push('/')
+  }
+}
+
+// 组件挂载时检查登录状态
+onMounted(() => {
+  checkLoginStatus()
+})
 </script>
 
 <style lang="scss" scoped>
