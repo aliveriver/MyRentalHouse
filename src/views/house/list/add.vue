@@ -378,19 +378,19 @@ const handlePublish = async () => {
   await formRef.value.validate((valid) => {
     if (valid) {
       ElMessage.success('发布成功')
-      router.push('/houseList')
+      router.push('/house/list')
     }
   })
 }
 
 // 取消
 const handleCancel = () => {
-  router.push('/houseList')
+  router.push('/house/list')
 }
 
 // 返回
 const handleBack = () => {
-  router.push('/houseList')
+  router.back()
 }
 </script>
 

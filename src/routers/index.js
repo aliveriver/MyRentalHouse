@@ -1,4 +1,4 @@
-import { createWebHashHistory, createRouter } from "vue-router";
+import { createRouter, createWebHashHistory } from "vue-router";
 
 import Layout from "../views/Layout.vue";
 
@@ -6,15 +6,35 @@ export const constantRoutes = [
   {
     path: "/",
     component: () => import("../views/home/index.vue"),
-    meta: { title: "首页", icon: "HomeFilled" },
+    meta: { title: "数据概览", icon: "DataAnalysis" },
   },
   {
-    path: "classify",
+    path: "/house/list",
+    component: () => import("../views/house/list/index.vue"),
+    meta: { title: "房源列表" }
+  },
+  {
+    path: "/house/add",
+    component: () => import("../views/house/list/add.vue"),
+    meta: { title: "房源编辑" }
+  },
+  {
+    path: "/house/detail/:id",
+    component: () => import("../views/house/detail/index.vue"),
+    meta: { title: "房源详情" }
+  },
+  {
+    path: "/houseMap",
+    component: () => import("../views/house/map/index.vue"),
+    meta: { title: "地图找房", icon: "LocationInformation" },
+  },
+  {
+    path: "/classify",
     component: () => import("../views/classify/index.vue"),
     meta: { title: "分类管理", icon: "Histogram" },
   },
   {
-    path: "commodity",
+    path: "/commodity",
     component: () => import("../views/commodity/index.vue"),
     meta: { title: "商品管理", icon: "Briefcase" },
   },
@@ -22,11 +42,6 @@ export const constantRoutes = [
     path: "person",
     component: () => import("../views/person/index.vue"),
     meta: { title: "个人中心", icon: "Setting" },
-  },
-  {
-    path: "houseMap",
-    component: () => import("../views/house/map/index.vue"),
-    meta: { title: "地图" },
   },
 ];
 

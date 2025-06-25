@@ -133,6 +133,8 @@
       <div class="pagination-info">
         第{{ currentPage }}页 共{{ Math.ceil(filteredHouses.length / pageSize)
 
+
+
         }}页，共{{ filteredHouses.length }}条
       </div>
       <el-pagination
@@ -489,7 +491,7 @@ const handleReset = () => {
 }
 
 const handleAdd = () => {
-  router.push('/houseList/add')
+  router.push('/house/add')
 }
 
 const handleEdit = (row) => {
@@ -499,7 +501,7 @@ const handleEdit = (row) => {
 
 const handleEditDetail = (row) => {
   router.push({
-    path: '/houseList/add',
+    path: '/house/add',
     query: {
       mode: 'edit',
       id: row.id
@@ -509,7 +511,7 @@ const handleEditDetail = (row) => {
 
 const handleViewDetail = (row) => {
   router.push({
-    path: '/houseList/add',
+    path: '/house/add',
     query: {
       mode: 'view',
       id: row.id
