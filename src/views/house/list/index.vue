@@ -64,7 +64,13 @@
           label="名称"
           min-width="150"
           show-overflow-tooltip
-        />
+        >
+          <template #default="{ row }">
+            <span class="house-title-link" @click="handleViewDetail(row)">
+              {{ row.title }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column
           prop="originalPrice"
           label="原价格"
@@ -114,7 +120,7 @@
               type="primary"
               size="small"
               link
-              @click="handleEdit(row)"
+              @click="handleEditDetail(row)"
             >
               编辑
             </el-button>
@@ -124,7 +130,11 @@
     </div>
     <!-- 分页 -->
     <div class="pagination-wrapper">
-      <div class="pagination-info">第1页 共10页，共35405条</div>
+      <div class="pagination-info">
+        第{{ currentPage }}页 共{{ Math.ceil(filteredHouses.length / pageSize)
+
+        }}页，共{{ filteredHouses.length }}条
+      </div>
       <el-pagination
         :current-page="currentPage"
         :page-size="pageSize"
@@ -278,7 +288,13 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-const router = useRouter()
+import {
+  Search,
+  Plus,
+  Delete
+} from '@element-plus/icons-vue'
+
+const router = useRouter();
 
 // 搜索表单
 const searchForm = ref({
@@ -343,7 +359,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片1'
   },
   {
-    id: '987767',
+    id: '987768',
     title: 'xxxxxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -353,7 +369,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片2'
   },
   {
-    id: '987767',
+    id: '987769',
     title: 'xxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -363,7 +379,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片3'
   },
   {
-    id: '987767',
+    id: '987770',
     title: 'xxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -373,7 +389,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片4'
   },
   {
-    id: '987767',
+    id: '987771',
     title: 'xxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -383,7 +399,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片5'
   },
   {
-    id: '987767',
+    id: '987772',
     title: 'xxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -393,7 +409,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片6'
   },
   {
-    id: '987767',
+    id: '987773',
     title: 'xxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -403,7 +419,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片7'
   },
   {
-    id: '987767',
+    id: '987774',
     title: 'xxxxxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -413,7 +429,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片8'
   },
   {
-    id: '987767',
+    id: '987775',
     title: 'xxxxxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -423,7 +439,7 @@ const houseList = ref([
     image: 'https://via.placeholder.com/300x200?text=房源图片9'
   },
   {
-    id: '987767',
+    id: '987776',
     title: 'xxxxxxxxx',
     originalPrice: 9999,
     currentPrice: 7959,
@@ -473,20 +489,32 @@ const handleReset = () => {
 }
 
 const handleAdd = () => {
-  editForm.value = {
-    id: '',
-    title: '',
-    originalPrice: 0,
-    currentPrice: 0,
-    location: '',
-    status: ''
-  }
-  editDialogVisible.value = true
+  router.push('/houseList/add')
 }
 
 const handleEdit = (row) => {
   editForm.value = { ...row }
   editDialogVisible.value = true
+}
+
+const handleEditDetail = (row) => {
+  router.push({
+    path: '/houseList/add',
+    query: {
+      mode: 'edit',
+      id: row.id
+    }
+  })
+}
+
+const handleViewDetail = (row) => {
+  router.push({
+    path: '/houseList/add',
+    query: {
+      mode: 'view',
+      id: row.id
+    }
+  })
 }
 
 const handleEditSubmit = async () => {
@@ -637,7 +665,6 @@ const handleClose = () => {
     }
 
   }
-
   .house-detail {
     .detail-section {
       margin-bottom: 24px;
@@ -660,6 +687,15 @@ const handleClose = () => {
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       }
+    }
+  }
+
+  .house-title-link {
+    color: #409eff;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
     }
   }
 
