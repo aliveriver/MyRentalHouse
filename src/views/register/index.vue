@@ -181,7 +181,7 @@ const onSubmit = async () => {
 
         const response = await usersApi.createUser(registerData)
 
-        if (response) {
+        if (response.success === true) {
           ElMessage.success('注册成功！请前往登录')
           router.push('/login')
         } else {

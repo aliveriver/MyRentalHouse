@@ -69,6 +69,7 @@ import { useRouter } from "vue-router"
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import useStore from "../../store/index"
+import { usersApi } from "../../api/index"
 
 const store = useStore()
 const router = useRouter()
@@ -94,15 +95,17 @@ const form = ref({
 
 const onSubmit = async () => {
   await formRef.value.validate(async (valid, fields) => {
-    if (valid) {
-      try {
+    if (valid) {      try {
         loading.value = true
-          // 调用登录API
-        const response = null;
+        // 调用登录API
+        const response = await usersApi.login({
+          username: form.value.username,
+          password: form.value.password
+        });
 
         // 登录成功，保存token和用户信息
-        if (response.token) {
-          localStorage.setItem('token', response.token)
+        if (response && response.success) {
+          // localStorage.setItem('token', response.token)
 
           // 如果勾选了记住密码，设置更长的过期时间
           if (rememberMe.value) {
@@ -113,7 +116,7 @@ const onSubmit = async () => {
           // 保存用户信息到store
           store.setIsLogin(true)
           if (response.user) {
-            store.setUserInfo(response.user)
+            store.setUserInfo(response.data)
           }
 
           ElMessage.success('登录成功')
