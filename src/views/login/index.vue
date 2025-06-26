@@ -101,9 +101,7 @@ const onSubmit = async () => {
         const response = await usersApi.login({
           username: form.value.username,
           password: form.value.password
-        });
-
-        // 登录成功，保存token和用户信息
+        });        // 登录成功，保存token和用户信息
         if (response && response.success) {
           // localStorage.setItem('token', response.token)
 
@@ -113,14 +111,18 @@ const onSubmit = async () => {
             localStorage.setItem('rememberUntil', Date.now() + 7 * 24 * 60 * 60 * 1000) // 7天
           }
 
-          // 保存用户信息到store
+          // 保存用户信息到store（这会触发动态路由生成）
           store.setIsLogin(true)
-          if (response.user) {
+          if (response.data) {
+            // 设置用户信息，这会自动触发动态路由生成
             store.setUserInfo(response.data)
           }
 
           ElMessage.success('登录成功')
-          router.push("/")
+          // 等待路由生成完成后再跳转
+          setTimeout(() => {
+            router.push("/")
+          }, 100)
         } else {
           ElMessage.error('登录失败，请检查用户名和密码')
         }

@@ -41,12 +41,14 @@
           </template>
           <el-form
             :model="displayForm"
+            :rules="profileRules"
+            ref="profileFormRef"
             label-width="100px"
             class="profile-form"
           >
             <el-row :gutter="20">
               <el-col :span="12">
-                <el-form-item label="姓名">
+                <el-form-item label="姓名" prop="name">
                   <el-input v-model="displayForm.name" />
                 </el-form-item>
               </el-col>
@@ -58,12 +60,12 @@
             </el-row>
             <el-row :gutter="20">
               <el-col :span="12">
-                <el-form-item label="手机号">
+                <el-form-item label="手机号" prop="phone">
                   <el-input v-model="displayForm.phone" />
                 </el-form-item>
               </el-col>
               <el-col :span="12">
-                <el-form-item label="邮箱">
+                <el-form-item label="邮箱" prop="email">
                   <el-input v-model="displayForm.email" />
                 </el-form-item>
               </el-col>
@@ -178,9 +180,10 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import usersApi from '@/api/users'
+import profileApi from '@/api/profile'
 
 const passwordFormRef = ref(null)
+const profileFormRef = ref(null)
 
  // 当前用户ID，实际应该从登录状态获取
 const currentUserId = ref('1')
@@ -202,6 +205,30 @@ const passwordForm = reactive({
   newPassword: '',
   confirmPassword: ''
 })
+
+// 个人信息表单验证规则
+const profileRules = {
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { min: 2, max: 50, message: '姓名长度在2到50个字符', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    {
+      pattern: /^1[3-9]\d{9}$/,
+      message: '请输入正确的手机号码',
+      trigger: 'blur'
+    }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+    {
+      type: 'email',
+      message: '请输入正确的邮箱地址',
+      trigger: 'blur'
+    }
+  ]
+}
 
 // 密码验证规则
 const passwordRules = {
@@ -264,20 +291,18 @@ const loginLogs = ref([
 // 获取用户信息
 const getUserInfo = async () => {
   try {
-    const response = await usersApi.getUserById(currentUserId.value)
-    if (response) {
-      // 更新个人信息表单
-      Object.assign(displayForm, response)
+    const response = await profileApi.getCurrentUser()
 
+    if (response) {
       // 更新显示表单
       Object.assign(displayForm, {
         name: response.username || '未设置',
         employeeId: `USER${response.id || '000'}`,
         phone: response.phonenumber || '未设置',
         email: response.email || '未设置',
-        department: "IT部",
+        department: response.department || "house",
         role: getRoleText(response.role),
-        bio: '负责房源管理系统的日常维护和数据管理工作'
+        bio: response.bio || '负责房源管理系统的日常维护和数据管理工作'
       })
     }
   } catch (error) {
@@ -295,16 +320,28 @@ const getRoleText = (role) => {
 }
 
 const saveProfile = async () => {
+  // 验证表单
+  if (!profileFormRef.value) return
+
   try {
+    const valid = await profileFormRef.value.validate()
+    if (!valid) {
+      ElMessage.error('请检查输入信息')
+      return
+    }
+
     // 准备更新数据
     const updateData = {
       username: displayForm.name,
       email: displayForm.email,
       phonenumber: displayForm.phone,
-      role: "1"
+      department: displayForm.department,
+      bio: displayForm.bio
     }
 
-    const response = await usersApi.updateUser(currentUserId.value, updateData)
+    // 使用profile API更新信息
+    const response = await profileApi.updateProfile(updateData)
+
     if (response) {
       ElMessage.success('个人信息保存成功')
       // 重新获取用户信息
@@ -319,35 +356,37 @@ const saveProfile = async () => {
 const resetProfile = () => {
   // 重新获取用户信息
   getUserInfo()
+  // 清除表单验证状态
+  profileFormRef.value?.clearValidate()
   ElMessage.info('已重置到初始状态')
 }
 
 const changePassword = async () => {
-  passwordFormRef.value.validate(async (valid) => {
-    if (valid) {
-      try {
-        const passwordData = {
-          username: "",
-          password: passwordForm.newPassword,
-          email: "",
-          phonenumber: "",
-          registrationtime: "",
-          role: "",
-        }
+  if (!passwordFormRef.value) return
 
-        const response = await usersApi.changePassword(currentUserId.value, passwordData)
-        if (response) {
-          ElMessage.success('密码修改成功')
-          resetPasswordForm()
-        }
-      } catch (error) {
-        console.error('修改密码失败:', error)
-        ElMessage.error('密码修改失败')
-      }
-    } else {
+  try {
+    const valid = await passwordFormRef.value.validate()
+    if (!valid) {
       ElMessage.error('请检查输入信息')
+      return
     }
-  })
+
+    // 使用 profile 接口修改密码
+    const passwordData = {
+      currentPassword: passwordForm.currentPassword,
+      newPassword: passwordForm.newPassword
+    }
+
+    const response = await profileApi.updateProfile(passwordData)
+
+    if (response) {
+      ElMessage.success('密码修改成功')
+      resetPasswordForm()
+    }
+  } catch (error) {
+    console.error('修改密码失败:', error)
+    ElMessage.error('密码修改失败')
+  }
 }
 
 const resetPasswordForm = () => {

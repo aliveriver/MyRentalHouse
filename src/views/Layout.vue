@@ -13,7 +13,7 @@
             <h2>二手房管理平台</h2>
           </div>
           <router-link
-            v-for="(item, index) in constantRoutes"
+            v-for="(item, index) in store.routes"
             :to="item.path"
             :key="index"
           >
@@ -54,12 +54,11 @@
 <script setup>
 import useStore from "../store/index";
 import { useRouter } from "vue-router";
-import { constantRoutes } from "@/routers";
 const router = useRouter();
 const store = useStore();
 
 const logout = () => {
-  store.setIsLogin(false);
+  store.logout();
   router.push("/login");
 };
 </script>
