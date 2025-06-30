@@ -103,7 +103,10 @@ const onSubmit = async () => {
           password: form.value.password
         });        // 登录成功，保存token和用户信息
         if (response && response.success) {
-          // localStorage.setItem('token', response.token)
+          // 保存token（根据API文档，token可能在response.data中）
+          if (response.data && response.data.token) {
+            localStorage.setItem('token', response.data.token)
+          }
 
           // 如果勾选了记住密码，设置更长的过期时间
           if (rememberMe.value) {

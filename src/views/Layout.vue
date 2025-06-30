@@ -14,7 +14,7 @@
           </div>
           <router-link
             v-for="(item, index) in store.routes"
-            :to="item.path"
+            :to="item.path === '' ? '/' : '/' + item.path"
             :key="index"
           >
             <el-menu-item :index="index" v-if="!item.meta.isHidden">
@@ -54,12 +54,28 @@
 <script setup>
 import useStore from "../store/index";
 import { useRouter } from "vue-router";
+import { ElMessage } from 'element-plus'
+import { usersApi } from "../api/index";
+
 const router = useRouter();
 const store = useStore();
 
-const logout = () => {
-  store.logout();
-  router.push("/login");
+const logout = async () => {
+  try {
+    // 调用后端登出API
+    await usersApi.logout();
+
+    // 清除前端状态
+    store.logout();
+    ElMessage.success('登出成功');
+    router.push("/login");
+  } catch (error) {
+    console.error('Logout error:', error);
+    // 即使后端登出失败，也清除前端状态
+    store.logout();
+    ElMessage.warning('登出成功');
+    router.push("/login");
+  }
 };
 </script>
 

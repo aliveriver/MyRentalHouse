@@ -181,7 +181,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import profileApi from '@/api/profile'
+import useStore from "@/store/index"
 
+const store = useStore();
 const passwordFormRef = ref(null)
 const profileFormRef = ref(null)
 
@@ -290,8 +292,9 @@ const loginLogs = ref([
 
 // 获取用户信息
 const getUserInfo = async () => {
+  const userid = store.getUserInfo.userid
   try {
-    const response = await profileApi.getCurrentUser()
+    const response = await profileApi.getCurrentUser(userid)
 
     if (response) {
       // 更新显示表单
