@@ -7,6 +7,8 @@
           background-color="#181818"
           text-color="#fff"
           active-text-color="#ffd04b"
+          :default-active="activeMenuIndex"
+          mode="vertical"
         >
           <div class="header-left">
             <el-icon><Menu /></el-icon>
@@ -17,7 +19,10 @@
             :to="item.path === '' ? '/' : '/' + item.path"
             :key="index"
           >
-            <el-menu-item :index="index" v-if="!item.meta.isHidden">
+            <el-menu-item
+              :index="item.path === '' ? '/' : '/' + item.path"
+              v-if="!item.meta.isHidden"
+            >
               <el-icon>
                 <component :is="item.meta.icon"></component>
               </el-icon>
@@ -122,6 +127,7 @@
                   <span class="price">¥{{ house.price }}</span>
                   <span class="unit-price"
                     >{{ (house.price * 10000 / house.area).toFixed(0)
+
 
 
 
@@ -264,15 +270,60 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import useStore from "../store/index";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Location, StarFilled, Calendar } from '@element-plus/icons-vue'
 import { usersApi, favoritesApi, propertiesApi, viewingAppointmentsApi, contractsApi } from "../api/index";
 
 const router = useRouter();
+const route = useRoute();
 const store = useStore();
+
+// 菜单激活状态
+const activeMenuIndex = ref('/')
+
+// 根据当前路由设置激活菜单
+const setActiveMenu = () => {
+  const currentPath = route.path
+
+  // 处理特殊路由匹配
+  if (currentPath === '/' || currentPath === '') {
+    activeMenuIndex.value = '/'
+  } else if (currentPath.startsWith('/house/list') || currentPath.startsWith('/house/add')) {
+    activeMenuIndex.value = '/house/list'
+  } else if (currentPath.startsWith('/house/info')) {
+    activeMenuIndex.value = '/house/info'
+  } else if (currentPath.startsWith('/info/list') || currentPath.startsWith('/info/list/add')) {
+    activeMenuIndex.value = '/info/list'
+  } else if (currentPath.startsWith('/appointments')) {
+    activeMenuIndex.value = '/appointments'
+  } else if (currentPath.startsWith('/contracts')) {
+    activeMenuIndex.value = '/contracts'
+  } else if (currentPath.startsWith('/person')) {
+    activeMenuIndex.value = '/person'
+  } else {
+    // 默认匹配
+    const matchedRoute = store.routes.find(routeItem => {
+      const routePath = routeItem.path === '' ? '/' : '/' + routeItem.path
+      return currentPath.startsWith(routePath)
+    })
+    if (matchedRoute) {
+      activeMenuIndex.value = matchedRoute.path === '' ? '/' : '/' + matchedRoute.path
+    }
+  }
+}
+
+// 监听路由变化
+watch(() => route.path, () => {
+  setActiveMenu()
+}, { immediate: true })
+
+// 组件挂载时设置激活菜单
+onMounted(() => {
+  setActiveMenu()
+})
 
 // 收藏相关状态
 const favoritesDialogVisible = ref(false)

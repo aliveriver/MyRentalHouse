@@ -241,13 +241,19 @@ router.beforeEach(async (to, from, next) => {
       // 根据用户角色重定向到对应的首页
       if (store.userInfo && store.userInfo.role) {
         const userRole = store.userInfo.role.toLowerCase();
-        if (userRole === '卖家') {
-          next('/'); // 管理员默认到数据概览页
+        // 卖家相关角色
+        if (
+          userRole === '卖家' ||
+          userRole === 'admin' ||
+          userRole === 'seller'
+        ) {
+          next('/'); // 卖家默认到数据概览页
         } else {
-          next('/house/info'); // 普通用户默认到房源资讯页
+          // 买家相关角色（包括 user、买家、buyer 等）
+          next('/house/info'); // 买家默认到房源资讯页
         }
       } else {
-        next('/');
+        next('/house/info'); // 默认跳转到房源资讯页
       }
       return;
     }

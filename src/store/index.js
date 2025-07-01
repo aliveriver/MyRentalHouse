@@ -1,9 +1,9 @@
-import { addDynamicRoutes, adminRoutes, userRoutes } from "@/routers/index";
-import { filterRoutesByRole } from "@/utils/auth";
-import { defineStore } from "pinia";
+import { addDynamicRoutes, adminRoutes, userRoutes } from '@/routers/index';
+import { filterRoutesByRole } from '@/utils/auth';
+import { defineStore } from 'pinia';
 
 export default defineStore({
-  id: "index",
+  id: 'index',
   state: () => {
     return {
       isLogin: false,
@@ -27,27 +27,33 @@ export default defineStore({
     // 根据用户角色生成路由
     generateRoutes(userInfo) {
       let accessibleRoutes = [];
-      
+
       if (userInfo && userInfo.role) {
         const userRole = userInfo.role.toLowerCase();
-        
+
         // 根据角色获取对应的路由配置
         let availableRoutes = [];
-        if (userRole == '卖家') {
+        // 卖家相关角色
+        if (
+          userRole === '卖家' ||
+          userRole === 'admin' ||
+          userRole === 'seller'
+        ) {
           availableRoutes = [...adminRoutes];
         } else {
+          // 买家相关角色（包括 user、买家、buyer 等）
           availableRoutes = [...userRoutes];
         }
-        
+
         // 过滤路由：只显示当前用户角色可访问的路由
         accessibleRoutes = filterRoutesByRole(availableRoutes, userRole);
-        
+
         console.log(`Generated routes for ${userRole}:`, accessibleRoutes);
       }
-      
+
       // 设置路由到 store
       this.setRoutes(accessibleRoutes);
-      
+
       // 动态添加路由到 router
       addDynamicRoutes(accessibleRoutes);
     },
