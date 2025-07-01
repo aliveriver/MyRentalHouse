@@ -355,12 +355,6 @@ const getTargetHouseDetail = () => {
       houseData.value.rooms = data.layout
       houseData.value.description = data.description
       houseData.value.tags = data.tagIds.map(t => all.find(item => item.id === t)?.value || '未知标签')
-      houseData.value.rooms = (() => {
-        const id = data.tagIds.filter(t => {
-          return houseTags.some(h => h.id === t)
-        })[0]
-        return id ? houseTags.find(h => h.id === id).value : '未知户型'
-      })();
       houseData.value.direction = (() => {
         const id = data.tagIds.filter(t => {
           return orientationTags.some(h => h.id === t)
