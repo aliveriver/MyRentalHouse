@@ -22,10 +22,30 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="房源编号" prop="houseNumber">
+            <el-form-item label="户型" prop="layout">
+              <el-select
+                v-model="form.layout"
+                placeholder="请选择户型"
+                style="width: 100%"
+                :disabled="isView"
+              >
+                <el-option
+                  :label="item.value"
+                  :value="item.value"
+                  v-for="item in tags.houseTags"
+                  :key="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="房源地址" prop="address">
               <el-input
-                v-model="form.houseNumber"
-                placeholder="请输入编号"
+                v-model="form.address"
+                placeholder="请输入房源地址"
                 :readonly="isView"
               />
             </el-form-item>
@@ -34,32 +54,37 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="房源类型" prop="houseType">
+            <el-form-item label="状态" prop="status">
               <el-select
-                v-model="form.houseType"
-                placeholder="请选择类型"
+                v-model="form.status"
+                placeholder="请选择状态"
                 style="width: 100%"
                 :disabled="isView"
               >
-                <el-option label="住宅" value="住宅" />
-                <el-option label="公寓" value="公寓" />
-                <el-option label="别墅" value="别墅" />
-                <el-option label="商铺" value="商铺" />
+                <el-option
+                  :label="item.value"
+                  :value="item.value"
+                  v-for="item in tags.statusTags"
+                  :key="item.id"
+                />
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="生产产地" prop="productionPlace">
+            <el-form-item label="标签" prop="tagIds">
               <el-select
-                v-model="form.productionPlace"
-                placeholder="选择产地"
+                v-model="form.tagIds"
+                placeholder="请选择标签"
                 style="width: 100%"
                 :disabled="isView"
+                multiple
               >
-                <el-option label="北京" value="北京" />
-                <el-option label="上海" value="上海" />
-                <el-option label="广州" value="广州" />
-                <el-option label="深圳" value="深圳" />
+                <el-option
+                  :label="item.value"
+                  :value="item.id"
+                  v-for="item in tags.all"
+                  :key="item.id"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -67,68 +92,27 @@
 
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="对应位置" prop="location">
-              <el-select
-                v-model="form.location"
-                placeholder="请选择房源所处位置"
-                style="width: 100%"
-                :disabled="isView"
-              >
-                <el-option label="市中心" value="市中心" />
-                <el-option label="城东" value="城东" />
-                <el-option label="城西" value="城西" />
-                <el-option label="城南" value="城南" />
-                <el-option label="城北" value="城北" />
-              </el-select>
+            <el-form-item label="房源大小" prop="area">
+              <el-input
+                v-model="form.area"
+                placeholder="房源大小(m²)"
+                :readonly="isView"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="房源大小" prop="houseSize">
+            <el-form-item label="房源价格" prop="price">
               <el-input
-                v-model="form.houseSize"
-                placeholder="请输入面积"
+                v-model="form.price"
+                placeholder="请输入房源价格(元)"
                 :readonly="isView"
               />
             </el-form-item>
           </el-col>
         </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="展示价格" prop="displayPrice">
-              <el-input
-                v-model="form.displayPrice"
-                placeholder="请输入价格(元)"
-                :readonly="isView"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="市场价格" prop="marketPrice">
-              <el-input
-                v-model="form.marketPrice"
-                placeholder="请输入价格(元)"
-                :readonly="isView"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
         <el-row>
           <el-col :span="24">
-            <el-form-item label="关键词" prop="keywords">
-              <el-input
-                v-model="form.keywords"
-                placeholder="以逗号分开,最多5个"
-                :readonly="isView"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row>
-          <el-col :span="24">
-            <el-form-item label="产品简介" prop="description">
+            <el-form-item label="房源描述" prop="description">
               <el-input
                 type="textarea"
                 v-model="form.description"
@@ -182,26 +166,14 @@
             </el-form-item>
           </el-col>
         </el-row>
-
-        <el-row>
-          <el-col :span="24">
-            <el-form-item label="详细内容" prop="detailedContent">
-              <el-input
-                type="textarea"
-                v-model="form.detailedContent"
-                placeholder="最少输入10个字符"
-                :rows="6"
-                :readonly="isView"
-              />
-            </el-form-item>
-          </el-col>
-        </el-row>
       </el-form>
     </div>
     <div class="footer">
       <div class="header-actions" v-if="!isView">
-        <el-button @click="handleCancel">取消</el-button>
-        <el-button type="primary" @click="handlePublish">发布</el-button>
+        <el-button @click="handleCancel" :disabled="loading">取消</el-button>
+        <el-button type="primary" @click="handlePublish" :loading="loading">
+          {{ isEdit ? '更新' : '发布' }}
+        </el-button>
       </div>
       <div class="header-actions" v-else>
         <el-button @click="handleBack">返回</el-button>
@@ -215,31 +187,34 @@ import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus, Close } from '@element-plus/icons-vue'
+import { propertiesApi } from '@/api/index'
+import useStore from '@/store/index'
+import * as tags from "@/constant/tags"
 
 const router = useRouter()
 const route = useRoute()
+const store = useStore()
 
 // 页面状态
 const isEdit = ref(false)
 const isView = ref(false)
+const loading = ref(false)
 
 // 表单引用
 const formRef = ref(null)
 
-// 表单数据
+// 表单数据 - 按照API文档格式调整
 const form = ref({
-  title: '',
-  houseNumber: '',
-  houseType: '',
-  productionPlace: '',
-  location: '',
-  houseSize: '',
-  displayPrice: '',
-  marketPrice: '',
-  keywords: '',
-  description: '',
-  images: [],
-  detailedContent: ''
+  // 基础信息
+  title: '',                    // 房源标题
+  description: '',              // 房源描述（对应原来的产品简介）
+  price: 0,                     // 价格（使用displayPrice）
+  area: 0,                      // 面积（从houseSize转换）
+  layout: '',                   // 户型（从houseType转换）
+  address: '',                  // 房源地址（对应原来的location）
+  status: '在售',               // 状态，默认在售
+  tagIds: [],
+  images: [],                  // 图片
 })
 
 // 表单验证规则
@@ -247,34 +222,23 @@ const rules = {
   title: [
     { required: true, message: '请输入房源标题', trigger: 'blur' }
   ],
-  houseNumber: [
-    { required: true, message: '请输入房源编号', trigger: 'blur' }
-  ],
-  houseType: [
-    { required: true, message: '请选择房源类型', trigger: 'change' }
-  ],
-  productionPlace: [
-    { required: true, message: '请选择生产产地', trigger: 'change' }
-  ],
-  location: [
-    { required: true, message: '请选择对应位置', trigger: 'change' }
-  ],
-  houseSize: [
-    { required: true, message: '请输入房源大小', trigger: 'blur' }
-  ],
-  displayPrice: [
-    { required: true, message: '请输入展示价格', trigger: 'blur' }
-  ],
-  marketPrice: [
-    { required: true, message: '请输入市场价格', trigger: 'blur' }
-  ],
   description: [
-    { required: true, message: '请输入产品简介', trigger: 'blur' },
-    { min: 10, message: '最少输入10个字符', trigger: 'blur' }
+    { required: true, message: '请输入描述', trigger: 'blur' }
   ],
-  detailedContent: [
-    { required: true, message: '请输入详细内容', trigger: 'blur' },
-    { min: 10, message: '最少输入10个字符', trigger: 'blur' }
+  price: [
+    { required: true, message: '请输入价格', trigger: 'blur' }
+  ],
+  area: [
+    { required: true, message: '请输入面积', trigger: 'blur' }
+  ],
+  layout: [
+    { required: true, message: '请选着户型', trigger: 'blur' }
+  ],
+  address: [
+    { required: true, message: '请输入地址', trigger: 'blur' }
+  ],
+  status: [
+    { required: true, message: '请选择状态', trigger: 'blur' }
   ]
 }
 
@@ -297,45 +261,54 @@ onMounted(() => {
 // 初始化空表单
 const initEmptyForm = () => {
   form.value = {
+    // API字段
     title: '',
-    houseNumber: '',
-    houseType: '',
-    productionPlace: '',
-    location: '',
-    houseSize: '',
-    displayPrice: '',
-    marketPrice: '',
-    keywords: '',
     description: '',
+    price: 0,
+    area: 0,
+    layout: '',
+    address: '',
+    status: '在售',
     images: [],
-    detailedContent: ''
   }
 }
 
 // 加载房源数据
-const loadHouseData = (id) => {
-  // 模拟从服务器加载数据
-  // 实际项目中这里应该是API调用
-  const mockData = {
-    title: '朝阳门精装修三居室',
-    houseNumber: '987767',
-    houseType: '住宅',
-    productionPlace: '北京',
-    location: '市中心',
-    houseSize: '128㎡',
-    displayPrice: '7959',
-    marketPrice: '9999',
-    keywords: '地铁房,精装修,南北通透',
-    description: '位于朝阳门核心地段，精装修三居室，南北通透，采光极佳。紧邻地铁站，交通便利。周边配套设施齐全，生活便利。',
-    images: [
-      { url: 'https://via.placeholder.com/150x100?text=房源图片1', name: '房源图片1' },
-      { url: 'https://via.placeholder.com/150x100?text=房源图片2', name: '房源图片2' },
-      { url: 'https://via.placeholder.com/150x100?text=房源图片3', name: '房源图片3' }
-    ],
-    detailedContent: '房源详细描述：这是一套位于朝阳门的精装修三居室，总面积128平方米，南北通透，采光极佳。房屋配备了现代化的家电设施，拎包即可入住。小区环境优美，配套设施完善，周边有多所知名学校和医院，交通便利，地铁2号线和6号线直达。房屋朝向南北，客厅朝南，主卧朝南，次卧朝北，厨房朝北。装修风格现代简约，家具家电齐全。'
-  }
+const loadHouseData = async (id) => {
+  try {
+    loading.value = true
+    const response = await propertiesApi.getPropertyById(id)
 
-  form.value = { ...mockData }
+    if (response && response.success) {
+      const propertyData = response.data
+
+      // 将API数据映射到表单
+      form.value = {
+        // API字段
+        title: propertyData.title,
+        description: propertyData.description,
+        price: propertyData.price,
+        area: propertyData.area,
+        layout: propertyData.layout,
+        address: propertyData.address,
+        status: propertyData.status,
+        // 界面字段（模拟数据或从API字段转换）
+        houseNumber: id,
+        tagIds: propertyData.tagIds || [],
+        images: [
+          { url: 'https://via.placeholder.com/150x100?text=房源图片1', name: '房源图片1' },
+          { url: 'https://via.placeholder.com/150x100?text=房源图片2', name: '房源图片2' }
+        ],
+      }
+    } else {
+      ElMessage.error('获取房源信息失败')
+    }
+  } catch (error) {
+    console.error('加载房源数据失败:', error)
+    ElMessage.error('加载房源数据失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 // 图片上传前的处理
@@ -371,16 +344,64 @@ const removeImage = (index) => {
   form.value.images.splice(index, 1)
 }
 
-// 发布
+// 发布房源
 const handlePublish = async () => {
   if (!formRef.value) return
 
-  await formRef.value.validate((valid) => {
+  await formRef.value.validate(async (valid) => {
     if (valid) {
-      ElMessage.success('发布成功')
-      router.push('/house/list')
+      try {
+        loading.value = true
+
+        // 准备API数据
+        const apiData = prepareApiData()
+
+        let response
+        if (isEdit.value) {
+          // 编辑模式
+          const propertyId = route.query.id
+          response = await propertiesApi.updateProperty(propertyId, apiData)
+        } else {
+          // 新增模式
+          response = await propertiesApi.createProperty(apiData)
+        }
+
+        if (response && response.success) {
+          ElMessage.success(isEdit.value ? '更新成功' : '发布成功')
+          router.push('/house/list')
+        } else {
+          ElMessage.error(response?.errorMsg || '操作失败')
+        }
+      } catch (error) {
+        console.error('发布失败:', error)
+        ElMessage.error('发布失败：' + (error.message || '网络错误'))
+      } finally {
+        loading.value = false
+      }
     }
   })
+}
+
+const prepareApiData = () => {
+  const price = parseFloat(form.value.price) || 0
+  const area = parseFloat(form.value.area) || 0
+  const layout = form.value.layout || '住宅'
+  const address = form.value.address
+  const description = form.value.description
+
+  const tagIds = form.value.tagIds
+  return {
+    title: form.value.title,
+    description: description,
+    price: price,
+    area: area,
+    layout: layout,
+    address: address,
+    publishdate: new Date().toISOString().split('T')[0], // 当前日期 YYYY-MM-DD
+    status: form.value.status || '在售',
+    sellerid: store.getUserInfo?.userid || 1, // 从store获取当前用户ID
+    tagIds: tagIds
+  }
 }
 
 // 取消
