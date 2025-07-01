@@ -35,6 +35,11 @@ export const adminRoutes = [
     meta: { title: '资讯编辑', isHidden: true, roles: ['卖家'] },
   },
   {
+    path: 'appointments',
+    component: () => import('../views/appointments/index.vue'),
+    meta: { title: '预约管理', icon: 'Calendar', roles: ['卖家'] },
+  },
+  {
     path: 'classify',
     component: () => import('../views/classify/index.vue'),
     meta: { title: '分类管理', icon: 'Histogram', roles: ['卖家'] },

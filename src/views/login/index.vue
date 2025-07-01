@@ -89,8 +89,8 @@ const rules = {
 
 const formRef = ref(null)
 const form = ref({
-  username: "",
-  password: ""
+  username: "aliveriver",
+  password: "123456"
 })
 
 const onSubmit = async () => {
