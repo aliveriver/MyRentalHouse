@@ -19,7 +19,7 @@
           <h1 class="house-title">{{ houseData.title }}</h1>
           <div class="house-price">
             <span class="total-price">{{ houseData.totalPrice }}</span>
-            <span class="price-unit">万</span>
+            <span class="price-unit">元</span>
             <span class="unit-price">{{ houseData.unitPrice }}元/平</span>
           </div>
         </div>
@@ -63,7 +63,10 @@
           </div>
         </div>
 
-        <div class="house-tags-section">
+        <div
+          class="house-tags-section"
+          v-if="houseData.tags && houseData.tags.length"
+        >
           <div class="tags-title">房源标签</div>
           <div class="tags-content">
             <el-tag v-for="tag in houseData.tags" :key="tag" class="house-tag">
@@ -86,11 +89,7 @@
         <div class="location-basic">
           <div class="location-item">
             <el-icon><Location /></el-icon>
-            <span>{{ houseData.district }} {{ houseData.location }}</span>
-          </div>
-          <div class="location-item">
-            <el-icon><Guide /></el-icon>
-            <span>{{ houseData.address }}</span>
+            <span>{{ houseData.district }}</span>
           </div>
         </div>
 
@@ -147,7 +146,7 @@
     </div>
 
     <!-- 推荐房源 -->
-    <div class="recommended-houses">
+    <div class="recommended-houses" v-if="recommendedHouses.length">
       <h3>推荐房源</h3>
       <div class="recommended-list">
         <div
@@ -174,12 +173,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Location, Guide, Phone } from '@element-plus/icons-vue'
 import AMapLoader from "@amap/amap-jsapi-loader"
+import { propertiesApi } from "@/api/index"
 import { key_web_js } from "@/components/map/config.js"
+import { all, houseTags, orientationTags, afitmentTags, typeTags } from "@/constant/tags"
 
 const route = useRoute()
 const router = useRouter()
@@ -256,35 +257,32 @@ const houseData = ref({
 })
 
 // 推荐房源
-const recommendedHouses = ref([
-  {
-    id: 2,
-    title: '中关村学区房两居室',
-    rooms: '2室1厅1卫',
-    area: '89㎡',
-    location: '海淀区 中关村',
-    totalPrice: 650,
-    image: 'https://via.placeholder.com/200x150?text=推荐房源1'
-  },
-  {
-    id: 3,
-    title: '王府井商圈豪华装修',
-    rooms: '4室2厅2卫',
-    area: '180㎡',
-    location: '东城区 王府井',
-    totalPrice: 1280,
-    image: 'https://via.placeholder.com/200x150?text=推荐房源2'
-  },
-  {
-    id: 4,
-    title: '西城区金融街精品一居',
-    rooms: '1室1厅1卫',
-    area: '56㎡',
-    location: '西城区 金融街',
-    totalPrice: 420,
-    image: 'https://via.placeholder.com/200x150?text=推荐房源3'
-  }
-])
+const recommendedHouses = ref([])
+
+const getHouseList = () => {
+  propertiesApi.getAllProperties().then(response => {
+    if (response.success) {
+      const data = response.data.splice(0, 3)
+      recommendedHouses.value = data.map(item => {
+        return {
+          id: item.propertyid,
+          title: item.title,
+          rooms: item.layout,
+          area: item.area + "m²",
+          location: item.address,
+          totalPrice: item.price,
+          image: ''
+        }
+      })
+    } else {
+      ElMessage.error('获取房源列表失败，请稍后再试。')
+    }
+  }).catch(error => {
+    console.error('获取房源列表失败:', error)
+    ElMessage.error('获取房源列表失败，请稍后再试。')
+  })
+}
+getHouseList();
 
 const contactAgent = () => {
   ElMessage.success('已为您转接经纪人，请稍候...')
@@ -296,6 +294,9 @@ const viewPhone = () => {
 
 const goToHouse = (houseId) => {
   router.push(`/house/detail/${houseId}`)
+  setTimeout(() => {
+    getTargetHouseDetail()
+  }, 16)
 }
 
 // 初始化小地图
@@ -324,26 +325,57 @@ const initMiniMap = async () => {
   }
 }
 
+const getTargetHouseDetail = () => {
+  const houseId = route.params.id
+  propertiesApi.getPropertyById(houseId).then(response => {
+    if (response.success) {
+      const data = response.data;
+      houseData.value.agent.name = "用户：" + response.data.sellerid
+      houseData.value.id = data.propertyid
+      houseData.value.district = data.address
+      houseData.value.title = data.title
+      houseData.value.totalPrice = data.price
+      houseData.value.area = data.area + "m²"
+      houseData.value.unitPrice = (data.price / data.area).toFixed(2)
+      houseData.value.rooms = data.layout
+      houseData.value.description = data.description
+      houseData.value.tags = data.tagIds.map(t => all.find(item => item.id === t)?.value || '未知标签')
+      houseData.value.rooms = (() => {
+        const id = data.tagIds.filter(t => {
+          return houseTags.some(h => h.id === t)
+        })[0]
+        return id ? houseTags.find(h => h.id === id).value : '未知户型'
+      })();
+      houseData.value.direction = (() => {
+        const id = data.tagIds.filter(t => {
+          return orientationTags.some(h => h.id === t)
+        })[0]
+        return id ? orientationTags.find(h => h.id === id).value : '未知方向'
+      })();
+      houseData.value.decoration = (() => {
+        const id = data.tagIds.filter(t => {
+          return afitmentTags.some(h => h.id === t)
+        })[0]
+        return id ? afitmentTags.find(h => h.id === id).value : '未知装修'
+      })();
+      houseData.value.buildingType = (() => {
+        const id = data.tagIds.filter(t => {
+          return typeTags.some(h => h.id === t)
+        })[0]
+        return id ? typeTags.find(h => h.id === id).value : '未知类型'
+      })();
+      initMiniMap()
+    }
+  }).catch(error => {
+    console.error('获取房源数据失败:', error)
+    ElMessage.error('房源信息加载失败，请稍后再试。')
+  })
+}
+
 onMounted(() => {
   // 根据路由参数加载房源数据
-  const houseId = route.params.id
-  console.log('房源ID:', houseId)
-
-  // 这里应该根据houseId从API获取数据
-  // 暂时使用模拟数据
-
-  // 初始化小地图
-  setTimeout(() => {
-    initMiniMap()
-  }, 100)
+  getTargetHouseDetail()
 })
-
-
-
-
-
-
-
 
 onUnmounted(() => {
   if (miniMap) {
