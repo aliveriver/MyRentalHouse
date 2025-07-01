@@ -40,6 +40,9 @@
                 <el-dropdown-item @click="showFavorites"
                   >我的收藏</el-dropdown-item
                 >
+                <el-dropdown-item @click="showAppointments"
+                  >我的预约</el-dropdown-item
+                >
                 <el-dropdown-item @click="logout">退出</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -56,10 +59,10 @@
     <el-dialog
       v-model="favoritesDialogVisible"
       title="我的收藏"
-      width="90%"
+      width="60%"
       max-width="1200px"
-      :close-on-click-modal="false"
       class="favorites-dialog"
+      draggable
     >
       <div class="favorites-content">
         <div class="favorites-header">
@@ -94,20 +97,36 @@
                   >
                     {{ house.title }}
                   </h4>
-                  <el-button
-                    :type="'danger'"
-                    :icon="'StarFilled'"
-                    @click="removeFavorite(house.propertyid)"
-                    :loading="house.removing"
-                    size="small"
-                    circle
-                  />
+                  <div class="card-actions">
+                    <el-button
+                      type="success"
+                      :icon="Calendar"
+                      @click="quickAppointment(house.propertyid)"
+                      size="small"
+                      circle
+                      title="预约看房"
+                    />
+                    <el-button
+                      :type="'danger'"
+                      :icon="'StarFilled'"
+                      @click="removeFavorite(house.propertyid)"
+                      :loading="house.removing"
+                      size="small"
+                      circle
+                      title="取消收藏"
+                    />
+                  </div>
                 </div>
 
                 <div class="house-price">
                   <span class="price">¥{{ house.price }}万</span>
                   <span class="unit-price"
                     >{{ (house.price * 10000 / house.area).toFixed(0)
+
+
+
+
+
 
 
 
@@ -150,6 +169,83 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 我的预约对话框 -->
+    <el-dialog
+      v-model="appointmentsDialogVisible"
+      title="我的预约"
+      width="60%"
+      max-width="1200px"
+      draggable
+      class="appointments-dialog"
+    >
+      <div class="appointments-content">
+        <div class="appointments-header">
+          <span class="total-count">共 {{ appointmentsTotal }} 个预约</span>
+        </div>
+
+        <div class="appointments-list" v-loading="appointmentsLoading">
+          <div class="appointments-table">
+            <el-table :data="appointmentsList" style="width: 100%">
+              <el-table-column label="房源信息" min-width="250">
+                <template #default="scope">
+                  <div class="house-info-cell">
+                    <div
+                      class="house-title"
+                      @click="goToHouseDetail(scope.row.propertyid)"
+                    >
+                      {{ scope.row.houseTitle || '房源标题' }}
+                    </div>
+                    <div class="house-address">
+                      {{ scope.row.houseAddress || '房源地址' }}
+                    </div>
+                    <div class="house-price">
+                      ¥{{ scope.row.housePrice || '未知' }}万
+                    </div>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column
+                prop="appointmenttime"
+                label="预约时间"
+                width="180"
+              >
+                <template #default="scope">
+                  {{ formatDateTime(scope.row.appointmenttime) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="status" label="状态" width="100">
+                <template #default="scope">
+                  <el-tag
+                    :type="getStatusTagType(scope.row.status)"
+                    size="small"
+                  >
+                    {{ scope.row.status }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="120">
+                <template #default="scope">
+                  <el-button
+                    type="danger"
+                    size="small"
+                    @click="deleteAppointment(scope.row.appointmentid)"
+                    :loading="scope.row.deleting"
+                  >
+                    删除
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <el-empty
+            v-if="!appointmentsLoading && appointmentsList.length === 0"
+            description="暂无预约记录"
+          />
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -158,8 +254,8 @@ import { ref } from 'vue'
 import useStore from "../store/index";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Location, StarFilled } from '@element-plus/icons-vue'
-import { usersApi, favoritesApi, propertiesApi } from "../api/index";
+import { Location, StarFilled, Calendar } from '@element-plus/icons-vue'
+import { usersApi, favoritesApi, propertiesApi, viewingAppointmentsApi } from "../api/index";
 
 const router = useRouter();
 const store = useStore();
@@ -172,6 +268,12 @@ const favoritesPage = ref(1)
 const favoritesPageSize = ref(10)
 const favoritesLoading = ref(false)
 const defaultHouseImage = 'https://img.zx123.cn/Resources/zx123cn/uploadfile/2020/0507/6bf211145acaf9038e4278f6de6a50eb.jpg'
+
+// 预约相关状态
+const appointmentsDialogVisible = ref(false)
+const appointmentsList = ref([])
+const appointmentsTotal = ref(0)
+const appointmentsLoading = ref(false)
 
 // 显示收藏列表
 const showFavorites = () => {
@@ -260,6 +362,120 @@ const removeFavorite = async (propertyId) => {
     const house = favoritesList.value.find(h => h.propertyid === propertyId)
     if (house) house.removing = false
   }
+}
+
+// 显示预约列表
+const showAppointments = () => {
+  appointmentsDialogVisible.value = true
+  loadAppointments()
+}
+
+// 加载预约列表
+const loadAppointments = async () => {
+  appointmentsLoading.value = true
+  try {
+    const response = await viewingAppointmentsApi.getAllAppointments()
+    if (response.success) {
+      // 获取房源信息来丰富预约数据
+      const houseResponse = await propertiesApi.getAllProperties()
+      if (houseResponse.success) {
+        appointmentsList.value = response.data.map(appointment => {
+          const house = houseResponse.data.find(h => h.propertyid === appointment.propertyid)
+          return {
+            ...appointment,
+            houseTitle: house?.title || '未知房源',
+            houseAddress: house?.address || '未知地址',
+            housePrice: house?.price || 0,
+            deleting: false
+          }
+        })
+      } else {
+        appointmentsList.value = response.data.map(appointment => ({
+          ...appointment,
+          deleting: false
+        }))
+      }
+      appointmentsTotal.value = response.data.length
+    } else {
+      ElMessage.error(response.errorMsg || '获取预约列表失败')
+    }
+  } catch (error) {
+    console.error('获取预约列表失败:', error)
+    ElMessage.error('获取预约列表失败，请稍后再试')
+  } finally {
+    appointmentsLoading.value = false
+  }
+}
+
+// 删除预约
+const deleteAppointment = async (appointmentId) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个预约吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    // 设置loading状态
+    const appointment = appointmentsList.value.find(a => a.appointmentid === appointmentId)
+    if (appointment) appointment.deleting = true
+
+    const response = await viewingAppointmentsApi.deleteAppointment(appointmentId)
+    if (response.success) {
+      ElMessage.success('删除预约成功')
+      // 重新加载预约列表
+      loadAppointments()
+    } else {
+      ElMessage.error(response.errorMsg || '删除预约失败')
+      if (appointment) appointment.deleting = false
+    }
+  } catch (error) {
+    if (error === 'cancel') {
+      return // 用户取消操作
+    }
+    console.error('删除预约失败:', error)
+    ElMessage.error('删除预约失败，请稍后再试')
+    const appointment = appointmentsList.value.find(a => a.appointmentid === appointmentId)
+    if (appointment) appointment.deleting = false
+  }
+}
+
+// 格式化日期时间
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '未知时间'
+  try {
+    const date = new Date(dateTimeStr)
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (error) {
+    return '格式错误'
+  }
+}
+
+// 获取状态标签类型
+const getStatusTagType = (status) => {
+  switch (status) {
+    case '待审批':
+      return 'warning'
+    case '已预约':
+      return 'success'
+    case '已取消':
+      return 'danger'
+    default:
+      return 'info'
+  }
+}
+
+// 快速预约房源
+const quickAppointment = (propertyId) => {
+  // 跳转到房源详情页并触发预约
+  router.push(`/house/detail/${propertyId}`)
+  ElMessage.info('已跳转到房源详情页，请点击"预约看房"按钮进行预约')
 }
 
 const logout = async () => {
@@ -433,14 +649,33 @@ const logout = async () => {
             }
           }
 
-          .favorite-btn {
-            color: #f56c6c;
-            border-color: #f56c6c;
+          .card-actions {
+            display: flex;
+            gap: 8px;
             flex-shrink: 0;
 
-            &:hover {
-              background-color: #f56c6c;
-              color: white;
+            .el-button {
+              transition: all 0.3s ease;
+
+              &.el-button--success {
+                color: #67c23a;
+                border-color: #67c23a;
+
+                &:hover {
+                  background-color: #67c23a;
+                  color: white;
+                }
+              }
+
+              &.el-button--danger {
+                color: #f56c6c;
+                border-color: #f56c6c;
+
+                &:hover {
+                  background-color: #f56c6c;
+                  color: white;
+                }
+              }
             }
           }
         }
@@ -504,6 +739,64 @@ const logout = async () => {
           justify-content: flex-end;
         }
       }
+    }
+  }
+}
+
+// 预约对话框样式
+.appointments-dialog {
+  .appointments-content {
+    .appointments-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 15px 0;
+      border-bottom: 1px solid #e4e7ed;
+
+      .total-count {
+        font-size: 16px;
+        color: #606266;
+        font-weight: 500;
+      }
+    }
+
+    .appointments-table {
+      .house-info-cell {
+        .house-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #409eff;
+          cursor: pointer;
+          margin-bottom: 4px;
+          line-height: 1.4;
+
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+
+        .house-address {
+          font-size: 12px;
+          color: #909399;
+          margin-bottom: 4px;
+          line-height: 1.3;
+        }
+
+        .house-price {
+          font-size: 14px;
+          color: #f56c6c;
+          font-weight: 600;
+        }
+      }
+
+      .el-table .cell {
+        padding: 8px 0;
+      }
+    }
+
+    .el-empty {
+      padding: 60px 0;
     }
   }
 }

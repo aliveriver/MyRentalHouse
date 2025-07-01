@@ -18,15 +18,26 @@
         <div class="house-title-section">
           <div class="title-and-favorite">
             <h1 class="house-title">{{ houseData.title }}</h1>
-            <el-button
-              :type="isFavorited ? 'danger' : 'primary'"
-              :icon="isFavorited ? 'StarFilled' : 'Star'"
-              @click="toggleFavorite"
-              :loading="favoriteLoading"
-              class="favorite-btn"
-            >
-              {{ isFavorited ? '已收藏' : '收藏' }}
-            </el-button>
+            <div class="action-buttons">
+              <el-button
+                :type="isFavorited ? 'danger' : 'primary'"
+                :icon="isFavorited ? 'StarFilled' : 'Star'"
+                @click="toggleFavorite"
+                :loading="favoriteLoading"
+                class="favorite-btn"
+              >
+                {{ isFavorited ? '已收藏' : '收藏' }}
+              </el-button>
+              <el-button
+                type="success"
+                :icon="Calendar"
+                @click="showAppointmentDialog"
+                :loading="appointmentLoading"
+                class="appointment-btn"
+              >
+                预约看房
+              </el-button>
+            </div>
           </div>
           <div class="house-price">
             <span class="total-price">{{ houseData.totalPrice }}</span>
@@ -180,16 +191,60 @@
         </div>
       </div>
     </div>
+
+    <!-- 预约看房对话框 -->
+    <el-dialog
+      v-model="appointmentDialogVisible"
+      title="预约看房"
+      width="500px"
+      :close-on-click-modal="false"
+      class="appointment-dialog"
+    >
+      <el-form
+        ref="appointmentFormRef"
+        :model="appointmentForm"
+        :rules="appointmentRules"
+        label-width="120px"
+        label-position="left"
+      >
+        <el-form-item label="预约时间" prop="appointmenttime">
+          <el-date-picker
+            v-model="appointmentForm.appointmenttime"
+            type="datetime"
+            placeholder="请选择预约时间"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DDTHH:mm:ss"
+            :disabled-date="disabledDate"
+            :disabled-hours="disabledHours"
+            :disabled-minutes="disabledMinutes"
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="appointmentDialogVisible = false">取消</el-button>
+          <el-button
+            type="primary"
+            @click="submitAppointment"
+            :loading="appointmentSubmitting"
+          >
+            确认预约
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Location, Guide, Phone, Star, StarFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Location, Guide, Phone, Star, StarFilled, Calendar } from '@element-plus/icons-vue'
 import AMapLoader from "@amap/amap-jsapi-loader"
-import { propertiesApi, favoritesApi } from "@/api/index"
+import { propertiesApi, favoritesApi, viewingAppointmentsApi } from "@/api/index"
 import { key_web_js } from "@/components/map/config.js"
 import { all, houseTags, orientationTags, afitmentTags, typeTags } from "@/constant/tags"
 
@@ -273,6 +328,26 @@ const recommendedHouses = ref([])
 // 收藏相关状态
 const isFavorited = ref(false)
 const favoriteLoading = ref(false)
+
+// 预约相关状态
+const appointmentDialogVisible = ref(false)
+const appointmentLoading = ref(false)
+const appointmentSubmitting = ref(false)
+const appointmentFormRef = ref()
+
+// 预约表单数据
+const appointmentForm = ref({
+  propertyid: null,
+  appointmenttime: '',
+  remark: ''
+})
+
+// 预约表单验证规则
+const appointmentRules = {
+  appointmenttime: [
+    { required: true, message: '请选择预约时间', trigger: 'change' }
+  ]
+}
 
 const getHouseList = () => {
   propertiesApi.getAllProperties().then(response => {
@@ -426,6 +501,88 @@ const toggleFavorite = async () => {
   }
 }
 
+// 显示预约对话框
+const showAppointmentDialog = () => {
+  appointmentDialogVisible.value = true
+  appointmentForm.value.propertyid = houseData.value.id
+  appointmentForm.value.appointmenttime = ''
+  appointmentForm.value.remark = ''
+}
+
+// 禁用过去的日期
+const disabledDate = (time) => {
+  return time.getTime() < Date.now() - 24 * 60 * 60 * 1000
+}
+
+// 禁用过去的小时
+const disabledHours = () => {
+  const hours = []
+  const now = new Date()
+  const selectedDate = new Date(appointmentForm.value.appointmenttime)
+
+  if (selectedDate.toDateString() === now.toDateString()) {
+    for (let i = 0; i < now.getHours(); i++) {
+      hours.push(i)
+    }
+  }
+
+  // 限制工作时间 9:00-18:00
+  for (let i = 0; i < 9; i++) {
+    hours.push(i)
+  }
+  for (let i = 19; i < 24; i++) {
+    hours.push(i)
+  }
+
+  return hours
+}
+
+// 禁用过去的分钟
+const disabledMinutes = (hour) => {
+  const minutes = []
+  const now = new Date()
+  const selectedDate = new Date(appointmentForm.value.appointmenttime)
+
+  if (selectedDate.toDateString() === now.toDateString() && hour === now.getHours()) {
+    for (let i = 0; i <= now.getMinutes(); i++) {
+      minutes.push(i)
+    }
+  }
+
+  return minutes
+}
+
+// 提交预约申请
+const submitAppointment = async () => {
+  try {
+    await appointmentFormRef.value.validate()
+
+    appointmentSubmitting.value = true
+
+    const appointmentData = {
+      propertyid: appointmentForm.value.propertyid,
+      appointmenttime: appointmentForm.value.appointmenttime
+    }
+
+    const response = await viewingAppointmentsApi.applyAppointment(appointmentData)
+
+    if (response.success) {
+      ElMessage.success('预约申请提交成功！请等待审核')
+      appointmentDialogVisible.value = false
+    } else {
+      ElMessage.error(response.errorMsg || '预约申请失败，请稍后再试')
+    }
+  } catch (error) {
+    if (error === 'validation failed') {
+      return // 表单验证失败，不显示错误消息
+    }
+    console.error('预约申请失败:', error)
+    ElMessage.error('预约申请失败，请稍后再试')
+  } finally {
+    appointmentSubmitting.value = false
+  }
+}
+
 onMounted(() => {
   // 根据路由参数加载房源数据
   getTargetHouseDetail()
@@ -490,13 +647,19 @@ onUnmounted(() => {
             flex: 1;
           }
 
-          .favorite-btn {
+          .action-buttons {
+            display: flex;
+            gap: 12px;
             flex-shrink: 0;
-            transition: all 0.3s ease;
 
-            &:hover {
-              transform: translateY(-1px);
-              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            .favorite-btn,
+            .appointment-btn {
+              transition: all 0.3s ease;
+
+              &:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+              }
             }
           }
         }
@@ -812,6 +975,43 @@ h3 {
     .recommended-houses .recommended-list {
       grid-template-columns: 1fr;
     }
+  }
+}
+
+/* 预约对话框样式 */
+:deep(.appointment-dialog) {
+  .el-dialog__body {
+    padding: 20px 20px 0;
+  }
+
+  .el-dialog__footer {
+    padding: 20px;
+    text-align: right;
+  }
+}
+
+.house-info {
+  background: #f8f9fa;
+  padding: 15px 10px;
+  border-left: 4px solid #409eff;
+
+  .house-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+  }
+
+  .house-price {
+    font-size: 18px;
+    font-weight: 700;
+    color: #f56c6c;
+  }
+}
+
+.dialog-footer {
+  .el-button {
+    margin-left: 12px;
   }
 }
 </style>

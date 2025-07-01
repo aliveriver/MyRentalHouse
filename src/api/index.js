@@ -5,6 +5,7 @@ import profileApi from './profile';
 import propertiesApi from './properties';
 import userManagementApi from './userManagement';
 import usersApi from './users';
+import viewingAppointmentsApi from './viewingAppointments';
 
 export {
   favoritesApi,
@@ -13,6 +14,7 @@ export {
   propertiesApi,
   userManagementApi,
   usersApi,
+  viewingAppointmentsApi,
 };
 
 // 也可以作为默认导出
@@ -23,4 +25,5 @@ export default {
   properties: propertiesApi,
   info: infoApi,
   favorites: favoritesApi,
+  viewingAppointments: viewingAppointmentsApi,
 };
