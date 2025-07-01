@@ -15,7 +15,7 @@ export const adminRoutes = [
     meta: { title: '房源列表', icon: 'House', roles: ['卖家'] },
   },
   {
-    path: 'house/list/add',
+    path: 'house/add',
     component: () => import('../views/house/list/add.vue'),
     meta: { title: '房源编辑', isHidden: true, roles: ['卖家'] },
   },
@@ -45,11 +45,6 @@ export const adminRoutes = [
     meta: { title: '合同管理', icon: 'Document', roles: ['卖家'] },
   },
   {
-    path: 'houseMap',
-    component: () => import('../views/house/map/index.vue'),
-    meta: { title: '地图找房', icon: 'LocationInformation', roles: ['卖家'] },
-  },
-  {
     path: 'person',
     component: () => import('../views/person/index.vue'),
     meta: { title: '个人中心', icon: 'Setting', roles: ['卖家', 'user'] },
@@ -67,6 +62,11 @@ export const userRoutes = [
     path: 'house/detail/:id',
     component: () => import('../views/house/detail/index.vue'),
     meta: { title: '房源详情', isHidden: true, roles: ['买家', 'user'] },
+  },
+  {
+    path: 'houseMap',
+    component: () => import('../views/house/map/index.vue'),
+    meta: { title: '地图找房', icon: 'LocationInformation', roles: ['买家'] },
   },
   {
     path: 'person',

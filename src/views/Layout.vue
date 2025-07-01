@@ -131,6 +131,7 @@
 
 
 
+
                     }}元/m²</span
                   >
                 </div>
@@ -525,7 +526,7 @@ const logout = async () => {
 <style lang="scss" scoped>
 .header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   background-color: #ffffff;
   padding: 20px 30px;
