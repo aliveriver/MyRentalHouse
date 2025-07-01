@@ -130,6 +130,7 @@
 
 
 
+
                     }}元/m²</span
                   >
                 </div>
@@ -224,16 +225,27 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="120">
+              <el-table-column label="操作" width="180">
                 <template #default="scope">
-                  <el-button
-                    type="danger"
-                    size="small"
-                    @click="deleteAppointment(scope.row.appointmentid)"
-                    :loading="scope.row.deleting"
-                  >
-                    删除
-                  </el-button>
+                  <div class="action-buttons">
+                    <el-button
+                      v-if="scope.row.status === '已预约'"
+                      type="primary"
+                      size="small"
+                      @click="signContract(scope.row)"
+                      :loading="scope.row.signing"
+                    >
+                      签合同
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      @click="deleteAppointment(scope.row.appointmentid)"
+                      :loading="scope.row.deleting"
+                    >
+                      删除
+                    </el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -255,7 +267,7 @@ import useStore from "../store/index";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Location, StarFilled, Calendar } from '@element-plus/icons-vue'
-import { usersApi, favoritesApi, propertiesApi, viewingAppointmentsApi } from "../api/index";
+import { usersApi, favoritesApi, propertiesApi, viewingAppointmentsApi, contractsApi } from "../api/index";
 
 const router = useRouter();
 const store = useStore();
@@ -386,13 +398,15 @@ const loadAppointments = async () => {
             houseTitle: house?.title || '未知房源',
             houseAddress: house?.address || '未知地址',
             housePrice: house?.price || 0,
-            deleting: false
+            deleting: false,
+            signing: false
           }
         })
       } else {
         appointmentsList.value = response.data.map(appointment => ({
           ...appointment,
-          deleting: false
+          deleting: false,
+          signing: false
         }))
       }
       appointmentsTotal.value = response.data.length
@@ -476,6 +490,17 @@ const quickAppointment = (propertyId) => {
   // 跳转到房源详情页并触发预约
   router.push(`/house/detail/${propertyId}`)
   ElMessage.info('已跳转到房源详情页，请点击"预约看房"按钮进行预约')
+}
+
+// 签署合同
+const signContract = (appointment) => {
+  // 关闭预约对话框
+  appointmentsDialogVisible.value = false
+
+  // 跳转到签合同页面，传递房源ID和预约ID
+  router.push({
+    path: `/contract/sign/${appointment.propertyid}`,
+  })
 }
 
 const logout = async () => {
@@ -787,6 +812,16 @@ const logout = async () => {
           font-size: 14px;
           color: #f56c6c;
           font-weight: 600;
+        }
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+
+        .el-button {
+          margin: 0;
         }
       }
 

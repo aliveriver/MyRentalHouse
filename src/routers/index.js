@@ -68,6 +68,16 @@ export const userRoutes = [
     component: () => import('../views/person/index.vue'),
     meta: { title: '个人中心', icon: 'Setting', roles: ['买家', 'user'] },
   },
+  {
+    path: '/contract/sign/:propertyId',
+    name: 'ContractSign',
+    component: () => import('../views/contract/sign/index.vue'),
+    meta: {
+      title: '签署购房合同',
+      roles: ['买家', 'user'],
+      isHidden: true,
+    },
+  },
 ];
 
 // 基础路由（所有用户都可以访问）

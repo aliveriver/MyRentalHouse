@@ -1,4 +1,5 @@
 // API 统一导出文件
+import { contractsApi } from './contracts';
 import favoritesApi from './favorites';
 import infoApi from './info';
 import profileApi from './profile';
@@ -8,6 +9,7 @@ import usersApi from './users';
 import viewingAppointmentsApi from './viewingAppointments';
 
 export {
+  contractsApi,
   favoritesApi,
   infoApi,
   profileApi,
@@ -26,4 +28,5 @@ export default {
   info: infoApi,
   favorites: favoritesApi,
   viewingAppointments: viewingAppointmentsApi,
+  contracts: contractsApi,
 };
