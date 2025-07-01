@@ -72,3 +72,35 @@ export const all = [
   ...pirceTags,
   ...typeTags,
 ];
+
+export const infoTags = [
+  { id: 1, value: '政策解读' },
+  { id: 2, value: '市场动态' },
+  { id: 3, value: '购房指南' },
+  { id: 4, value: '装修建议' },
+  { id: 5, value: '投资分析' },
+  { id: 6, value: '北京' },
+  { id: 7, value: '上海' },
+  { id: 8, value: '广州' },
+  { id: 9, value: '深圳' },
+  { id: 10, value: '首次购房者' },
+  { id: 11, value: '改善型购房者' },
+  { id: 12, value: '投资者' },
+  { id: 13, value: '租客' },
+  { id: 14, value: '学区房' },
+  { id: 15, value: '新房市场' },
+  { id: 16, value: '二手房市场' },
+  { id: 17, value: '房贷政策' },
+  { id: 18, value: '房地产税' },
+  { id: 19, value: '最新资讯' },
+  { id: 20, value: '近期动态' },
+  { id: 21, value: '深度分析' },
+];
+
+export const informationcategoriesTags = [
+  { id: 1, value: '房产新闻' },
+  { id: 2, value: '购房指南' },
+  { id: 3, value: '装修知识' },
+  { id: 4, value: '政策解读' },
+  { id: 5, value: '市场分析' },
+];
