@@ -3,7 +3,7 @@
     <!-- 搜索和操作区 -->
     <div class="search-section">
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="4">
           <div class="search-item">
             <label>房源名称</label>
             <el-input
@@ -13,9 +13,41 @@
             />
           </div>
         </el-col>
-        <el-col :span="6">
+        <el-col :span="4">
           <div class="search-item">
-            <label>添加时间</label>
+            <label>价格范围</label>
+            <el-select
+              v-model="searchForm.priceRange"
+              placeholder="请选择价格范围"
+              style="width: 100%"
+              clearable
+            >
+              <el-option label="50万以下" value="0-500000" />
+              <el-option label="50-100万" value="500000-1000000" />
+              <el-option label="100-200万" value="1000000-2000000" />
+              <el-option label="200万以上" value="2000000-0" />
+            </el-select>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="search-item">
+            <label>状态</label>
+            <el-select
+              v-model="searchForm.status"
+              placeholder="请选择状态"
+              style="width: 100%"
+              clearable
+            >
+              <el-option label="在售" value="在售" />
+              <el-option label="已售" value="已售" />
+              <el-option label="待审核" value="待审核" />
+              <el-option label="下架" value="下架" />
+            </el-select>
+          </div>
+        </el-col>
+        <el-col :span="4">
+          <div class="search-item">
+            <label>发布时间</label>
             <el-date-picker
               v-model="searchForm.addTime"
               type="date"
@@ -24,8 +56,13 @@
             />
           </div>
         </el-col>
-        <el-col :span="12">
-          <el-button type="primary" class="search-btn" @click="handleSearch">
+        <el-col :span="8">
+          <el-button
+            type="primary"
+            class="search-btn"
+            @click="handleSearch"
+            :loading="loading"
+          >
             <el-icon><Search /></el-icon>
             查询
           </el-button>
@@ -36,18 +73,53 @@
 
     <!-- 操作按钮区 -->
     <div class="action-section">
-      <el-button type="primary" @click="handleAdd">
-        <el-icon><Plus /></el-icon>
-        添加
-      </el-button>
-      <el-button
-        type="danger"
-        :disabled="!selectedItems.length"
-        @click="handleBatchDelete"
-      >
-        <el-icon><Delete /></el-icon>
-        批量删除
-      </el-button>
+      <div class="left-actions">
+        <el-button type="primary" @click="handleAdd">
+          <el-icon><Plus /></el-icon>
+          添加房源
+        </el-button>
+        <el-button
+          type="danger"
+          :disabled="!selectedItems.length"
+          @click="handleBatchDelete"
+        >
+          <el-icon><Delete /></el-icon>
+          批量删除
+        </el-button>
+      </div>
+      <div class="right-actions">
+        <span class="filter-label">快速筛选：</span>
+        <el-button-group>
+          <el-button
+            :type="currentStatusFilter === '' ? 'primary' : ''"
+            size="small"
+            @click="handleStatusFilter('')"
+          >
+            全部
+          </el-button>
+          <el-button
+            :type="currentStatusFilter === '在售' ? 'primary' : ''"
+            size="small"
+            @click="handleStatusFilter('在售')"
+          >
+            在售
+          </el-button>
+          <el-button
+            :type="currentStatusFilter === '已售' ? 'primary' : ''"
+            size="small"
+            @click="handleStatusFilter('已售')"
+          >
+            已售
+          </el-button>
+          <el-button
+            :type="currentStatusFilter === '待审核' ? 'primary' : ''"
+            size="small"
+            @click="handleStatusFilter('待审核')"
+          >
+            待审核
+          </el-button>
+        </el-button-group>
+      </div>
     </div>
     <!-- 房源数据表格 -->
     <div class="table-section">
@@ -56,14 +128,16 @@
         style="width: 100%"
         @selection-change="handleSelectionChange"
         :header-cell-style="{ backgroundColor: '#f5f7fa', color: '#606266' }"
+        v-loading="loading"
+        element-loading-text="加载中..."
       >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="id" label="房源编号" width="100" />
         <el-table-column
           prop="title"
           label="名称"
-          min-width="150"
           show-overflow-tooltip
+          width="120"
         >
           <template #default="{ row }">
             <span class="house-title-link" @click="handleViewDetail(row)">
@@ -71,43 +145,24 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column
-          prop="originalPrice"
-          label="原价格"
-          width="100"
-          align="center"
-        >
-          <template #default="{ row }"> ¥{{ row.originalPrice }} </template>
+        <el-table-column prop="currentPrice" label="价格" align="center">
+          <template #default="{ row }"> ¥{{ row.price }} </template>
         </el-table-column>
-        <el-table-column
-          prop="currentPrice"
-          label="现价"
-          width="100"
-          align="center"
-        >
-          <template #default="{ row }"> ¥{{ row.currentPrice }} </template>
+        <el-table-column prop="area" label="面积(㎡)" align="center">
+          <template #default="{ row }"> {{ row.area }} </template>
         </el-table-column>
+        <el-table-column prop="layout" label="户型" align="center" />
         <el-table-column
           prop="location"
-          label="所属国家/地区"
-          width="120"
+          label="地址"
           align="center"
+          show-overflow-tooltip
         />
-        <el-table-column
-          prop="addTime"
-          label="加入时间"
-          width="120"
-          align="center"
-        />
-        <el-table-column
-          prop="status"
-          label="审核状态"
-          width="100"
-          align="center"
-        >
+        <el-table-column prop="addTime" label="发布时间" align="center" />
+        <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag
-              :type="row.status === '通过' ? 'success' : row.status === '待审核' ? 'warning' : 'danger'"
+              :type="row.status === '在售' ? 'success' : row.status === '待审核' ? 'warning' : row.status === '已售' ? 'info' : 'danger'"
               size="small"
             >
               {{ row.status }}
@@ -135,6 +190,19 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
         }}页，共{{ filteredHouses.length }}条
       </div>
       <el-pagination
@@ -147,128 +215,6 @@
         small
       />
     </div>
-
-    <!-- 新增/编辑房源弹窗 -->
-    <el-dialog
-      v-model="editDialogVisible"
-      :title="editForm.id ? '编辑房源' : '新增房源'"
-      width="600px"
-      :before-close="handleEditClose"
-    >
-      <el-form
-        :model="editForm"
-        :rules="editRules"
-        ref="editFormRef"
-        label-width="100px"
-      >
-        <el-form-item label="房源编号" prop="id" v-if="editForm.id">
-          <el-input v-model="editForm.id" disabled />
-        </el-form-item>
-        <el-form-item label="房源名称" prop="title">
-          <el-input v-model="editForm.title" placeholder="请输入房源名称" />
-        </el-form-item>
-        <el-form-item label="原价格" prop="originalPrice">
-          <el-input-number
-            v-model="editForm.originalPrice"
-            :min="0"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="现价" prop="currentPrice">
-          <el-input-number
-            v-model="editForm.currentPrice"
-            :min="0"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="所属国家/地区" prop="location">
-          <el-select
-            v-model="editForm.location"
-            placeholder="请选择国家/地区"
-            style="width: 100%"
-          >
-            <el-option label="中国" value="中国" />
-            <el-option label="美国" value="美国" />
-            <el-option label="日本" value="日本" />
-            <el-option label="韩国" value="韩国" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="审核状态" prop="status">
-          <el-select
-            v-model="editForm.status"
-            placeholder="请选择状态"
-            style="width: 100%"
-          >
-            <el-option label="通过" value="通过" />
-            <el-option label="待审核" value="待审核" />
-            <el-option label="拒绝" value="拒绝" />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="handleEditClose">取消</el-button>
-          <el-button type="primary" @click="handleEditSubmit">确定</el-button>
-        </span>
-      </template>
-    </el-dialog>
-    <!-- 房源详情弹窗 -->
-    <el-dialog
-      v-model="detailDialogVisible"
-      title="房源详情"
-      width="80%"
-      :before-close="handleClose"
-    >
-      <div v-if="currentHouse" class="house-detail">
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <div class="detail-section">
-              <h3>基本信息</h3>
-              <el-descriptions :column="2" border>
-                <el-descriptions-item
-                  label="房源编号"
-                  >{{ currentHouse.id }}</el-descriptions-item
-                >
-                <el-descriptions-item
-                  label="房源标题"
-                  >{{ currentHouse.title }}</el-descriptions-item
-                >
-                <el-descriptions-item label="原价格"
-                  >¥{{ currentHouse.originalPrice }}</el-descriptions-item
-                >
-                <el-descriptions-item label="现价"
-                  >¥{{ currentHouse.currentPrice }}</el-descriptions-item
-                >
-                <el-descriptions-item
-                  label="所属国家/地区"
-                  >{{ currentHouse.location }}</el-descriptions-item
-                >
-                <el-descriptions-item
-                  label="加入时间"
-                  >{{ currentHouse.addTime }}</el-descriptions-item
-                >
-                <el-descriptions-item label="状态">
-                  <el-tag
-                    :type="currentHouse.status === '通过' ? 'success' : currentHouse.status === '待审核' ? 'warning' : 'danger'"
-                    size="small"
-                  >
-                    {{ currentHouse.status }}
-                  </el-tag>
-                </el-descriptions-item>
-              </el-descriptions>
-            </div>
-          </el-col>
-          <el-col :span="12">
-            <div class="detail-section">
-              <h3>房源图片</h3>
-              <div class="house-images">
-                <img :src="currentHouse.image" :alt="currentHouse.title" />
-              </div>
-            </div>
-          </el-col>
-        </el-row>
-      </div>
-    </el-dialog>
 
     <!-- 批量删除确认弹窗 -->
     <el-dialog v-model="deleteDialogVisible" title="批量删除确认" width="400px">
@@ -286,21 +232,20 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-
-import {
-  Search,
-  Plus,
-  Delete
-} from '@element-plus/icons-vue'
+import { propertiesApi } from '@/api/index'
+import useStore from '@/store/index'
 
 const router = useRouter();
+const store = useStore();
 
 // 搜索表单
 const searchForm = ref({
   name: '',
+  priceRange: '',
+  status: '',
   addTime: ''
 })
 
@@ -313,144 +258,13 @@ const pageSize = ref(10)
 
 // 弹窗控制
 const detailDialogVisible = ref(false)
-const editDialogVisible = ref(false)
 const deleteDialogVisible = ref(false)
 const currentHouse = ref(null)
 
-// 编辑表单
-const editForm = ref({
-  id: '',
-  title: '',
-  originalPrice: 0,
-  currentPrice: 0,
-  location: '',
-  status: ''
-})
-
-const editFormRef = ref(null)
-
-// 编辑表单验证规则
-const editRules = {
-  title: [
-    { required: true, message: '请输入房源名称', trigger: 'blur' }
-  ],
-  originalPrice: [
-    { required: true, message: '请输入原价格', trigger: 'blur' }
-  ],
-  currentPrice: [
-    { required: true, message: '请输入现价', trigger: 'blur' }
-  ],
-  location: [
-    { required: true, message: '请选择国家/地区', trigger: 'change' }
-  ],
-  status: [
-    { required: true, message: '请选择审核状态', trigger: 'change' }
-  ]
-}
-
-// 房源数据
-const houseList = ref([
-  {
-    id: '987767',
-    title: 'xxxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片1'
-  },
-  {
-    id: '987768',
-    title: 'xxxxxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片2'
-  },
-  {
-    id: '987769',
-    title: 'xxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片3'
-  },
-  {
-    id: '987770',
-    title: 'xxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片4'
-  },
-  {
-    id: '987771',
-    title: 'xxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片5'
-  },
-  {
-    id: '987772',
-    title: 'xxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片6'
-  },
-  {
-    id: '987773',
-    title: 'xxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片7'
-  },
-  {
-    id: '987774',
-    title: 'xxxxxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片8'
-  },
-  {
-    id: '987775',
-    title: 'xxxxxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片9'
-  },
-  {
-    id: '987776',
-    title: 'xxxxxxxxx',
-    originalPrice: 9999,
-    currentPrice: 7959,
-    location: '中国',
-    addTime: 'xxx',
-    status: '通过',
-    image: 'https://via.placeholder.com/300x200?text=房源图片10'
-  }
-])
+// 房源数据 - 改为从API获取
+const houseList = ref([])
+const loading = ref(false)
+const currentStatusFilter = ref('')
 
 // 筛选后的房源列表
 const filteredHouses = computed(() => {
@@ -475,28 +289,118 @@ const paginatedHouses = computed(() => {
   return filteredHouses.value.slice(start, end)
 })
 
-// 方法
-const handleSearch = () => {
-  currentPage.value = 1
-  ElMessage.success('查询完成')
+// 获取房源列表
+const getHouseList = async () => {
+  try {
+    loading.value = true
+    const response = await propertiesApi.getAllProperties({
+      page: currentPage.value,
+      size: pageSize.value
+    })
+
+    if (response && response.success) {
+      // 将API返回的数据映射到组件需要的格式
+      houseList.value = response.data.map(item => ({
+        id: item.propertyid,
+        title: item.title,
+        price: item.price,
+        location: item.address,
+        addTime: new Date(item.publishdate).toLocaleString(),
+        status: item.status,
+        description: item.description,
+        area: item.area,
+        layout: item.layout,
+        sellerid: item.sellerid,
+        tagIds: item.tagIds || [],
+        image: 'https://via.placeholder.com/300x200?text=房源图片' // 默认图片
+      }))
+    } else {
+      // 如果接口返回失败，显示错误信息
+      ElMessage.error(response?.errorMsg || '获取房源列表失败')
+    }
+  } catch (error) {
+    console.error('获取房源列表失败:', error)
+    if (error.message?.includes('Network Error') || error.code === 'ERR_NETWORK') {
+      ElMessage.warning('网络连接失败')
+    } else {
+      ElMessage.error('获取房源列表失败')
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// 搜索房源
+const handleSearch = async () => {
+  try {
+    loading.value = true
+    const searchParams = {}
+
+    // 如果有搜索名称，添加关键词搜索
+    if (searchForm.value.name) {
+      searchParams.keyword = searchForm.value.name
+    }
+
+    // 如果有状态筛选
+    if (searchForm.value.status) {
+      searchParams.status = searchForm.value.status
+    }
+
+    // 如果有价格范围筛选
+    if (searchForm.value.priceRange) {
+      const [minPrice, maxPrice] = searchForm.value.priceRange.split('-').map(Number)
+      if (minPrice > 0) searchParams.minPrice = minPrice
+      if (maxPrice > 0) searchParams.maxPrice = maxPrice
+    }
+
+    // 如果有时间筛选，添加发布日期筛选
+    if (searchForm.value.addTime) {
+      searchParams.publishdate = searchForm.value.addTime
+    }
+
+    const response = await propertiesApi.searchProperties(searchParams)
+
+    if (response && response.success) {
+      houseList.value = response.data.map(item => ({
+        id: item.propertyid,
+        title: item.title,
+        price: item.price,
+        location: item.address,
+        addTime: new Date(item.publishdate).toLocaleString(),
+        status: item.status,
+        description: item.description,
+        area: item.area,
+        layout: item.layout,
+        sellerid: item.sellerid,
+        tagIds: item.tagIds || [],
+        image: 'https://via.placeholder.com/300x200?text=房源图片' // 默认图片
+      }))
+      currentPage.value = 1
+      ElMessage.success('查询完成')
+    }
+  } catch (error) {
+    console.error('搜索失败:', error)
+    ElMessage.error('搜索失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleReset = () => {
   searchForm.value = {
     name: '',
+    priceRange: '',
+    status: '',
     addTime: ''
   }
   currentPage.value = 1
+  // 重新获取数据
+  getHouseList()
   ElMessage.success('重置完成')
 }
 
 const handleAdd = () => {
   router.push('/house/add')
-}
-
-const handleEdit = (row) => {
-  editForm.value = { ...row }
-  editDialogVisible.value = true
 }
 
 const handleEditDetail = (row) => {
@@ -519,37 +423,6 @@ const handleViewDetail = (row) => {
   })
 }
 
-const handleEditSubmit = async () => {
-  if (!editFormRef.value) return
-
-  await editFormRef.value.validate((valid) => {
-    if (valid) {
-      if (editForm.value.id) {
-        // 编辑
-        const index = houseList.value.findIndex(item => item.id === editForm.value.id)
-        if (index > -1) {
-          houseList.value[index] = { ...editForm.value }
-          ElMessage.success('编辑成功')
-        }
-      } else {
-        // 新增
-        editForm.value.id = '987767'
-        editForm.value.image = 'https://via.placeholder.com/300x200?text=新房源图片'
-        houseList.value.unshift({ ...editForm.value })
-        ElMessage.success('添加成功')
-      }
-      editDialogVisible.value = false
-    }
-  })
-}
-
-const handleEditClose = () => {
-  editDialogVisible.value = false
-  if (editFormRef.value) {
-    editFormRef.value.resetFields()
-  }
-}
-
 const handleBatchDelete = () => {
   if (selectedItems.value.length === 0) {
     ElMessage.warning('请选择要删除的项目')
@@ -558,12 +431,26 @@ const handleBatchDelete = () => {
   deleteDialogVisible.value = true
 }
 
-const confirmBatchDelete = () => {
-  const selectedIds = selectedItems.value.map(item => item.id)
-  houseList.value = houseList.value.filter(item => !selectedIds.includes(item.id))
-  selectedItems.value = []
-  deleteDialogVisible.value = false
-  ElMessage.success(`成功删除 ${selectedIds.length} 条记录`)
+// 修改批量删除方法，使用API
+const confirmBatchDelete = async () => {
+  try {
+    loading.value = true
+    const selectedIds = selectedItems.value.map(item => item.id)
+    for(let i = 0; i < selectedIds.length; i++) {
+      const response = await propertiesApi.batchDeleteProperties(selectedIds[i])
+      if (response && response.success) {
+      }
+    }
+    await getHouseList()
+    deleteDialogVisible.value = false
+    ElMessage.success(`成功删除 ${selectedIds.length} 条记录`)
+    selectedItems.value = []
+  } catch (error) {
+    console.error('删除失败:', error)
+    ElMessage.error('删除失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleSelectionChange = (selection) => {
@@ -582,6 +469,18 @@ const handlePageChange = (page) => {
 const handleClose = () => {
   detailDialogVisible.value = false
   currentHouse.value = null
+}
+
+// 页面挂载时获取数据
+onMounted(() => {
+  getHouseList()
+})
+
+// 状态快速筛选
+const handleStatusFilter = async (status) => {
+  currentStatusFilter.value = status
+  searchForm.value.status = status
+  await handleSearch()
 }
 </script>
 
@@ -619,9 +518,26 @@ const handleClose = () => {
     background: #fff;
     border-radius: 4px;
     margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
 
-    .el-button {
-      margin-right: 10px;
+    .left-actions {
+      .el-button {
+        margin-right: 10px;
+      }
+    }
+
+    .right-actions {
+      display: flex;
+      align-items: center;
+
+      .filter-label {
+        font-size: 14px;
+        color: #606266;
+        margin-right: 8px;
+      }
     }
   }
 

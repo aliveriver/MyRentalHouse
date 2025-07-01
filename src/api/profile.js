@@ -3,16 +3,16 @@ import request from './request'
 // 用户个人资料相关接口
 const profileApi = {
   // 获取当前用户信息
-  getCurrentUser() {
+  getCurrentUser(id) {
     return request({
-      url: '/users/profile',
+      url: '/users/' + id,
       method: 'get'
     })
   },
   // 更新个人基本信息（包括密码修改）
   updateProfile(profileData) {
     return request({
-      url: '/users/profile',
+      url: '/users/profile/username',
       method: 'put',
       data: profileData
     })
