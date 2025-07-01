@@ -119,9 +119,10 @@
                 </div>
 
                 <div class="house-price">
-                  <span class="price">¥{{ house.price }}万</span>
+                  <span class="price">¥{{ house.price }}</span>
                   <span class="unit-price"
                     >{{ (house.price * 10000 / house.area).toFixed(0)
+
 
 
 
@@ -202,7 +203,7 @@
                       {{ scope.row.houseAddress || '房源地址' }}
                     </div>
                     <div class="house-price">
-                      ¥{{ scope.row.housePrice || '未知' }}万
+                      ¥{{ scope.row.housePrice || '未知' }}
                     </div>
                   </div>
                 </template>

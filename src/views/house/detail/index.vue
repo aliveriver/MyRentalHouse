@@ -116,7 +116,11 @@
         </div>
 
         <!-- 小地图 -->
-        <div class="mini-map" id="mini-map-container"></div>
+        <div
+          class="mini-map"
+          id="mini-map-container"
+          v-loading="mapLoading"
+        ></div>
 
         <!-- 周边配套 -->
         <div class="surrounding-facilities">
@@ -389,9 +393,11 @@ const goToHouse = (houseId) => {
   }, 16)
 }
 
+const mapLoading = ref(true);
 // 初始化小地图
 const initMiniMap = async () => {
   try {
+    mapLoading.value = true
     AMap = await AMapLoader.load({
       key: key_web_js,
       version: "2.0",
@@ -400,18 +406,87 @@ const initMiniMap = async () => {
 
     miniMap = new AMap.Map("mini-map-container", {
       zoom: 15,
-      center: [116.418757, 39.917544] // 朝阳门坐标
+      center: [116.418757, 39.917544] // 默认坐标，稍后会根据地址更新
     })
 
-    // 添加标记点
-    const marker = new AMap.Marker({
-      position: [116.418757, 39.917544],
-      title: houseData.value.title
+    // 创建地理编码对象
+    const geocoder = new AMap.Geocoder({
+      radius: 1000,
+      extensions: "all"
     })
-    miniMap.add(marker)
+
+    // 根据房源地址进行地理编码定位
+    const address = houseData.value.district || houseData.value.address
+    if (address) {
+      geocoder.getLocation(address, (status, result) => {
+        mapLoading.value = false
+
+        if (status === 'complete' && result.geocodes && result.geocodes.length > 0) {
+          const location = result.geocodes[0].location
+          const lnglat = [location.lng, location.lat]
+
+          // 设置地图中心点
+          miniMap.setCenter(lnglat)
+          miniMap.setZoom(15)
+
+          // 添加标记点
+          const marker = new AMap.Marker({
+            position: lnglat,
+            title: houseData.value.title,
+            anchor: 'bottom-center'
+          })
+          miniMap.add(marker)
+
+          // 创建信息窗口
+          const infoWindow = new AMap.InfoWindow({
+            content: `
+              <div style="padding: 10px; font-size: 14px;">
+                <strong>${houseData.value.title}</strong><br/>
+                <div style="margin-top: 5px; color: #666;">
+                  ${address}<br/>
+                  价格：${houseData.value.totalPrice}万元
+                </div>
+              </div>
+            `,
+            offset: new AMap.Pixel(0, -30)
+          })
+
+          // 点击标记显示信息窗口
+          marker.on('click', () => {
+            infoWindow.open(miniMap, lnglat)
+          })
+
+          console.log(`房源地址 "${address}" 定位成功:`, lnglat)
+        } else {
+          console.warn(`地址 "${address}" 地理编码失败:`, result)
+          ElMessage.warning('房源地址定位失败，显示默认位置')
+
+          // 地理编码失败时使用默认位置（北京朝阳门）
+          const defaultLocation = [116.418757, 39.917544]
+          const marker = new AMap.Marker({
+            position: defaultLocation,
+            title: houseData.value.title,
+            anchor: 'bottom-center'
+          })
+          miniMap.add(marker)
+        }
+      })
+    } else {
+      console.warn('房源地址信息为空，使用默认位置')
+
+      // 没有地址信息时使用默认位置
+      const defaultLocation = [116.418757, 39.917544]
+      const marker = new AMap.Marker({
+        position: defaultLocation,
+        title: houseData.value.title,
+        anchor: 'bottom-center'
+      })
+      miniMap.add(marker)
+    }
 
   } catch (error) {
     console.error('地图加载失败:', error)
+    ElMessage.error('地图加载失败')
   }
 }
 
@@ -448,7 +523,12 @@ const getTargetHouseDetail = () => {
         })[0]
         return id ? typeTags.find(h => h.id === id).value : '未知类型'
       })();
-      initMiniMap()
+
+      // 数据更新后初始化地图
+      nextTick(() => {
+        initMiniMap()
+      })
+
       // 检查收藏状态
       checkFavoriteStatus()
     }
