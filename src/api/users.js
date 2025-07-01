@@ -1,4 +1,4 @@
-import request from './request'
+import request from './request';
 
 // 用户相关接口
 const usersApi = {
@@ -7,16 +7,16 @@ const usersApi = {
     return request({
       url: '/users/login',
       method: 'post',
-      data: loginData
-    })
+      data: loginData,
+    });
   },
 
   // 获取当前用户信息
-  getCurrentUser() {
+  getCurrentUser(id) {
     return request({
-      url: '/users/current',
-      method: 'get'
-    })
+      url: '/users/' + id,
+      method: 'get',
+    });
   },
 
   // 创建用户
@@ -24,60 +24,60 @@ const usersApi = {
     return request({
       url: '/users/register',
       method: 'post',
-      data: userData
-    })
+      data: userData,
+    });
   },
-  // 更新用户个人信息
+  // 更新用户信息（个人信息修改）
   updateUser(userid, userData) {
     return request({
       url: `/users/${userid}`,
       method: 'put',
-      data: userData
-    })
+      data: userData,
+    });
   },
 
-  // 更新用户个人资料
+  // 更新用户个人资料（保留兼容性）
   updateProfile(userid, profileData) {
     return request({
-      url: `/users/${userid}/profile`,
+      url: `/users/${userid}`,
       method: 'put',
-      data: profileData
-    })
+      data: profileData,
+    });
   },
 
   // 删除用户
   deleteUser(userid) {
     return request({
       url: `/users/${userid}`,
-      method: 'delete'
-    })
+      method: 'delete',
+    });
   },
 
   // 获取单个用户详情
   getUserById(userid) {
     return request({
       url: `/users/${userid}`,
-      method: 'get'
-    })
+      method: 'get',
+    });
   },
 
   // 获取所有用户
   getAllUsers() {
     return request({
       url: '/users',
-      method: 'get'
-    })
-  },  /**
+      method: 'get',
+    });
+  },
+  /**
    * 验证用户当前密码
    * @param {string} userid - 用户ID
    * @param {string} password - 当前密码
-   */
-  verifyPassword(userid, password) {
+   */ verifyPassword(userid, password) {
     return request({
       url: `/users/${userid}/verify-password`,
       method: 'post',
-      data: { password }
-    })
+      data: { password },
+    });
   },
 
   /**
@@ -94,9 +94,9 @@ const usersApi = {
     return request({
       url: `/users/${userid}`,
       method: 'put',
-      data: passwordData
-    })
-  }
-}
+      data: passwordData,
+    });
+  },
+};
 
-export default usersApi
+export default usersApi;
