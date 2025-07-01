@@ -3,8 +3,8 @@
     <!-- 头部信息栏 -->
     <div class="header-info">
       <el-alert
-        title="欢迎使用后台管理系统（V1.2）"
-        description="您本次登录时间为xxxx年x月x日xx时xx分，登录IP:192.168.1.x"
+        title="欢迎使用二手房管理平台"
+        :description="`您本次登录时间为${formatCurrentTime()}，登录IP:${loginIP}`"
         show-icon
         :closable="false"
         type="success"
@@ -12,7 +12,7 @@
     </div>
 
     <!-- 统计卡片区域 -->
-    <el-row :gutter="20" class="stats-cards">
+    <el-row :gutter="20" class="stats-cards" v-loading="statsLoading">
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-content">
@@ -22,9 +22,11 @@
               </el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-number">34,522</div>
-              <div class="stat-label">商城用户(个)</div>
-              <div class="stat-date">更新日期: 2024-07-01</div>
+              <div class="stat-number">{{ statsData.totalUsers }}</div>
+              <div class="stat-label">平台用户(个)</div>
+              <div class="stat-date">
+                更新日期: {{ formatDate(new Date()) }}
+              </div>
             </div>
           </div>
         </el-card>
@@ -33,46 +35,52 @@
         <el-card class="stat-card">
           <div class="stat-content">
             <div class="stat-icon">
-              <el-icon size="32" color="#1890ff">
+              <el-icon size="32" color="#52c41a">
+                <House />
+              </el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ statsData.totalProperties }}</div>
+              <div class="stat-label">房源数量(套)</div>
+              <div class="stat-date">
+                更新日期: {{ formatDate(new Date()) }}
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon">
+              <el-icon size="32" color="#fa8c16">
+                <Calendar />
+              </el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ statsData.totalAppointments }}</div>
+              <div class="stat-label">预约记录(笔)</div>
+              <div class="stat-date">
+                更新日期: {{ formatDate(new Date()) }}
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stat-card">
+          <div class="stat-content">
+            <div class="stat-icon">
+              <el-icon size="32" color="#722ed1">
                 <Document />
               </el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-number">1,440</div>
-              <div class="stat-label">分销记录(笔)</div>
-              <div class="stat-date">更新日期: 2024-07-01</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon">
-              <el-icon size="32" color="#1890ff">
-                <Folder />
-              </el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number">3,665</div>
-              <div class="stat-label">商城订单(份)</div>
-              <div class="stat-date">更新日期: 2024-07-01</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card class="stat-card">
-          <div class="stat-content">
-            <div class="stat-icon">
-              <el-icon size="32" color="#1890ff">
-                <Money />
-              </el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number">¥ 101,440.00</div>
-              <div class="stat-label">交易金额(累计)</div>
-              <div class="stat-date">更新日期: 2024-07-01</div>
+              <div class="stat-number">{{ statsData.totalContracts }}</div>
+              <div class="stat-label">合同数量(份)</div>
+              <div class="stat-date">
+                更新日期: {{ formatDate(new Date()) }}
+              </div>
             </div>
           </div>
         </el-card>
@@ -80,35 +88,39 @@
     </el-row>
 
     <!-- 数据统计区域 -->
-    <el-row :gutter="20" class="data-section">
+    <el-row :gutter="20" class="data-section" v-loading="detailStatsLoading">
       <el-col :span="6">
         <el-card>
           <template #header>
             <div class="card-header">
-              <el-icon><Edit /></el-icon>
-              <span>订单统计信息</span>
+              <el-icon><Calendar /></el-icon>
+              <span>预约统计信息</span>
             </div>
           </template>
           <div class="data-list">
             <div class="data-item">
-              <span class="data-label">未处理订单</span>
-              <span class="data-value">0 份</span>
+              <span class="data-label">待审核预约</span>
+              <span class="data-value">{{ appointmentStats.pending }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">待发货订单</span>
-              <span class="data-value">10 份</span>
+              <span class="data-label">已通过预约</span>
+              <span class="data-value">{{ appointmentStats.approved }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">待确认订单</span>
-              <span class="data-value">13 份</span>
+              <span class="data-label">已拒绝预约</span>
+              <span class="data-value">{{ appointmentStats.rejected }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">已成交订单数</span>
-              <span class="data-value">24 份</span>
+              <span class="data-label">已完成预约</span>
+              <span class="data-value"
+                >{{ appointmentStats.completed }} 份</span
+              >
             </div>
             <div class="data-item">
-              <span class="data-label">交易失败</span>
-              <span class="data-value">30 份</span>
+              <span class="data-label">本月新增</span>
+              <span class="data-value"
+                >{{ appointmentStats.thisMonth }} 份</span
+              >
             </div>
           </div>
         </el-card>
@@ -117,30 +129,30 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <el-icon><Shop /></el-icon>
+              <el-icon><House /></el-icon>
               <span>房源统计信息</span>
             </div>
           </template>
           <div class="data-list">
             <div class="data-item">
-              <span class="data-label">商品总数</span>
-              <span class="data-value">4,760 份</span>
+              <span class="data-label">房源总数</span>
+              <span class="data-value">{{ propertyStats.total }} 套</span>
             </div>
             <div class="data-item">
-              <span class="data-label">回收站商品</span>
-              <span class="data-value">56 份</span>
+              <span class="data-label">在售房源</span>
+              <span class="data-value">{{ propertyStats.available }} 套</span>
             </div>
             <div class="data-item">
-              <span class="data-label">上架商品</span>
-              <span class="data-value">4,678 份</span>
+              <span class="data-label">已售房源</span>
+              <span class="data-value">{{ propertyStats.sold }} 套</span>
             </div>
             <div class="data-item">
-              <span class="data-label">下架商品</span>
-              <span class="data-value">26 份</span>
+              <span class="data-label">下架房源</span>
+              <span class="data-value">{{ propertyStats.inactive }} 套</span>
             </div>
             <div class="data-item">
-              <span class="data-label">商品评论</span>
-              <span class="data-value">6,785 条</span>
+              <span class="data-label">本月新增</span>
+              <span class="data-value">{{ propertyStats.thisMonth }} 套</span>
             </div>
           </div>
         </el-card>
@@ -149,30 +161,30 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <el-icon><UserFilled /></el-icon>
-              <span>会员登录统计信息</span>
+              <el-icon><Document /></el-icon>
+              <span>合同统计信息</span>
             </div>
           </template>
           <div class="data-list">
             <div class="data-item">
-              <span class="data-label">注册会员登录</span>
-              <span class="data-value">3,665 次</span>
+              <span class="data-label">合同总数</span>
+              <span class="data-value">{{ contractStats.total }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">微信登录</span>
-              <span class="data-value">9,198 份</span>
+              <span class="data-label">已签署</span>
+              <span class="data-value">{{ contractStats.signed }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">支付宝登录</span>
-              <span class="data-value">6,678 份</span>
+              <span class="data-label">执行中</span>
+              <span class="data-value">{{ contractStats.active }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">QQ登录</span>
-              <span class="data-value">4,326 份</span>
+              <span class="data-label">已完成</span>
+              <span class="data-value">{{ contractStats.completed }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">新浪微博登录</span>
-              <span class="data-value">1,785 份</span>
+              <span class="data-label">本月新增</span>
+              <span class="data-value">{{ contractStats.thisMonth }} 份</span>
             </div>
           </div>
         </el-card>
@@ -181,43 +193,46 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <el-icon><UserFilled /></el-icon>
-              <span>最新消息</span>
+              <el-icon><Star /></el-icon>
+              <span>收藏统计信息</span>
             </div>
           </template>
           <div class="data-list">
             <div class="data-item">
-              <span class="data-label">新功能上线</span>
-              <span class="data-value">智能推荐系统全面升级！</span>
+              <span class="data-label">总收藏数</span>
+              <span class="data-value">{{ favoriteStats.total }} 次</span>
             </div>
             <div class="data-item">
-              <span class="data-label">版本更新通知</span>
-              <span class="data-value">全性和稳定性提升</span>
+              <span class="data-label">今日新增</span>
+              <span class="data-value">{{ favoriteStats.today }} 次</span>
             </div>
             <div class="data-item">
-              <span class="data-label">活动策划利器</span>
-              <span class="data-value">全新营销活动模板上线</span>
+              <span class="data-label">本周新增</span>
+              <span class="data-value">{{ favoriteStats.thisWeek }} 次</span>
             </div>
             <div class="data-item">
-              <span class="data-label">数据分析再升级</span>
-              <span class="data-value">新BI报表功能强势来</span>
+              <span class="data-label">本月新增</span>
+              <span class="data-value">{{ favoriteStats.thisMonth }} 次</span>
             </div>
             <div class="data-item">
-              <span class="data-label">用户反馈响应</span>
-              <span class="data-value">新一轮功能优化即将上线</span>
+              <span class="data-label">热门房源</span>
+              <span
+                class="data-value"
+                >{{ favoriteStats.hotProperty || '暂无' }}</span
+              >
             </div>
           </div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- 图表和最新消息区域 -->
+    <!-- 图表区域 -->
     <el-row :gutter="20" class="bottom-section">
       <el-col :span="24">
-        <el-card>
+        <el-card v-loading="chartLoading">
           <template #header>
             <div class="card-header">
-              <span>销售目标月比统计</span>
+              <span>平台活跃度月比统计</span>
               <div class="chart-legend">
                 <span class="legend-item">
                   <span
@@ -246,10 +261,234 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import * as echarts from 'echarts'
+import {
+  User,
+  House,
+  Calendar,
+  Document,
+  Star
+} from '@element-plus/icons-vue'
+import {
+  dashboardApi,
+  propertiesApi,
+  viewingAppointmentsApi,
+  contractsApi,
+  favoritesApi,
+  usersApi
+} from '@/api/index'
+import { ElMessage } from 'element-plus'
 
 const chartRef = ref(null)
 
+// 加载状态
+const statsLoading = ref(false)
+const detailStatsLoading = ref(false)
+const chartLoading = ref(false)
+
+// 登录信息
+const loginIP = ref('192.168.1.100')
+
+// 总体统计数据
+const statsData = ref({
+  totalUsers: 0,
+  totalProperties: 0,
+  totalAppointments: 0,
+  totalContracts: 0
+})
+
+// 详细统计数据
+const appointmentStats = ref({
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  completed: 0,
+  thisMonth: 0
+})
+
+const propertyStats = ref({
+  total: 0,
+  available: 0,
+  sold: 0,
+  inactive: 0,
+  thisMonth: 0
+})
+
+const contractStats = ref({
+  total: 0,
+  signed: 0,
+  active: 0,
+  completed: 0,
+  thisMonth: 0
+})
+
+const favoriteStats = ref({
+  total: 0,
+  today: 0,
+  thisWeek: 0,
+  thisMonth: 0,
+  hotProperty: ''
+})
+
+// 月度统计数据
+const monthlyData = ref({
+  currentMonth: [],
+  lastMonth: [],
+  days: []
+})
+
+// 格式化当前时间
+const formatCurrentTime = () => {
+  const now = new Date()
+  return now.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// 格式化日期
+const formatDate = (date) => {
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
+
+// 获取总体统计数据
+const loadStatsData = async () => {
+  statsLoading.value = true
+  try {
+    // 获取用户总数
+    const usersResponse = await usersApi.getAllUsers()
+    if (usersResponse.success) {
+      statsData.value.totalUsers = usersResponse.data.length
+    }
+
+    // 获取房源总数
+    const propertiesResponse = await propertiesApi.getAllProperties()
+    if (propertiesResponse.success) {
+      statsData.value.totalProperties = propertiesResponse.data.length
+    }
+
+    // 获取预约总数
+    const appointmentsResponse = await viewingAppointmentsApi.getAllAppointments()
+    if (appointmentsResponse.success) {
+      statsData.value.totalAppointments = appointmentsResponse.data.length
+    }
+
+    // 获取合同总数
+    const contractsResponse = await contractsApi.getAllContracts()
+    if (contractsResponse.success) {
+      statsData.value.totalContracts = contractsResponse.data.length
+    }
+
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+    ElMessage.error('加载统计数据失败')
+  } finally {
+    statsLoading.value = false
+  }
+}
+
+// 获取详细统计数据
+const loadDetailStats = async () => {
+  detailStatsLoading.value = true
+  try {
+    // 预约统计
+    const appointmentsResponse = await viewingAppointmentsApi.getAllAppointments()
+    if (appointmentsResponse.success) {
+      const appointments = appointmentsResponse.data
+      appointmentStats.value = {
+        pending: appointments.filter(a => a.status === 'PENDING').length,
+        approved: appointments.filter(a => a.status === 'APPROVED').length,
+        rejected: appointments.filter(a => a.status === 'REJECTED').length,
+        completed: appointments.filter(a => a.status === 'COMPLETED').length,
+        thisMonth: appointments.filter(a => {
+          const appointmentDate = new Date(a.appointmenttime)
+          const now = new Date()
+          return appointmentDate.getFullYear() === now.getFullYear() &&
+                 appointmentDate.getMonth() === now.getMonth()
+        }).length
+      }
+    }
+
+    // 房源统计（模拟数据，实际需要后端支持状态字段）
+    const propertiesResponse = await propertiesApi.getAllProperties()
+    if (propertiesResponse.success) {
+      const properties = propertiesResponse.data
+      propertyStats.value = {
+        total: properties.length,
+        available: Math.floor(properties.length * 0.8), // 假设80%在售
+        sold: Math.floor(properties.length * 0.15), // 假设15%已售
+        inactive: Math.floor(properties.length * 0.05), // 假设5%下架
+        thisMonth: Math.floor(properties.length * 0.1) // 假设10%是本月新增
+      }
+    }
+
+    // 合同统计（模拟数据，实际需要后端支持状态字段）
+    const contractsResponse = await contractsApi.getAllContracts()
+    if (contractsResponse.success) {
+      const contracts = contractsResponse.data
+      contractStats.value = {
+        total: contracts.length,
+        signed: Math.floor(contracts.length * 0.6),
+        active: Math.floor(contracts.length * 0.3),
+        completed: Math.floor(contracts.length * 0.1),
+        thisMonth: Math.floor(contracts.length * 0.2)
+      }
+    }
+
+    // 收藏统计（模拟数据）
+    favoriteStats.value = {
+      total: Math.floor(Math.random() * 1000) + 500,
+      today: Math.floor(Math.random() * 20) + 5,
+      thisWeek: Math.floor(Math.random() * 100) + 30,
+      thisMonth: Math.floor(Math.random() * 300) + 100,
+      hotProperty: '朝阳门精装修三居室'
+    }
+
+  } catch (error) {
+    console.error('加载详细统计数据失败:', error)
+    ElMessage.error('加载详细统计数据失败')
+  } finally {
+    detailStatsLoading.value = false
+  }
+}
+
+// 获取月度统计数据（模拟数据）
+const loadMonthlyData = () => {
+  // 生成过去30天的数据
+  const days = []
+  const currentMonth = []
+  const lastMonth = []
+
+  for (let i = 30; i >= 0; i--) {
+    const date = new Date()
+    date.setDate(date.getDate() - i)
+    days.push(date.getDate().toString().padStart(2, '0'))
+
+    // 模拟当月数据（预约数量）
+    currentMonth.push(Math.floor(Math.random() * 30) + 10)
+    // 模拟上月数据
+    lastMonth.push(Math.floor(Math.random() * 25) + 8)
+  }
+
+  monthlyData.value = {
+    days: days.slice(-7), // 只显示最近7天
+    currentMonth: currentMonth.slice(-7),
+    lastMonth: lastMonth.slice(-7)
+  }
+}
+
+// 初始化图表
 const initChart = () => {
+  if (!chartRef.value) return
+
+  chartLoading.value = true
+
   const chart = echarts.init(chartRef.value)
 
   const option = {
@@ -267,7 +506,7 @@ const initChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: ['01', '03', '05', '07', '09', '11', '13'],
+      data: monthlyData.value.days,
       axisLine: {
         lineStyle: {
           color: '#e6e6e6'
@@ -295,14 +534,14 @@ const initChart = () => {
       },
       axisLabel: {
         color: '#666',
-        formatter: '{value}%'
+        formatter: '{value}'
       }
     },
     series: [
       {
         name: '本月',
         type: 'line',
-        data: [15, 23, 32, 20, 27, 33, 45],
+        data: monthlyData.value.currentMonth,
         smooth: true,
         lineStyle: {
           color: '#1890ff',
@@ -317,7 +556,7 @@ const initChart = () => {
       {
         name: '上月',
         type: 'line',
-        data: [20, 32, 27, 34, 32, 28, 36],
+        data: monthlyData.value.lastMonth,
         smooth: true,
         lineStyle: {
           color: '#52c41a',
@@ -333,6 +572,7 @@ const initChart = () => {
   }
 
   chart.setOption(option)
+  chartLoading.value = false
 
   // 响应式处理
   window.addEventListener('resize', () => {
@@ -340,8 +580,15 @@ const initChart = () => {
   })
 }
 
-onMounted(() => {
-  initChart()
+onMounted(async () => {
+  await loadStatsData()
+  await loadDetailStats()
+  loadMonthlyData()
+
+  // 确保DOM更新后再初始化图表
+  setTimeout(() => {
+    initChart()
+  }, 100)
 })
 </script>
 
@@ -468,33 +715,11 @@ onMounted(() => {
           }
         }
       }
-
-      .el-icon {
-        margin-right: 8px;
-        color: #1890ff;
-      }
     }
 
     .chart-container {
       height: 300px;
       width: 100%;
-    }
-
-    .news-list {
-      .news-item {
-        padding: 12px 0;
-        border-bottom: 1px solid #f0f0f0;
-
-        &:last-child {
-          border-bottom: none;
-        }
-
-        .news-text {
-          color: #666;
-          font-size: 14px;
-          line-height: 1.5;
-        }
-      }
     }
   }
 
@@ -506,6 +731,11 @@ onMounted(() => {
       border-bottom: 1px solid #f0f0f0;
       background-color: #fafafa;
     }
+  }
+
+  // 加载状态样式
+  :deep(.el-loading-mask) {
+    background-color: rgba(255, 255, 255, 0.8);
   }
 }
 </style>
