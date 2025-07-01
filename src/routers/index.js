@@ -40,6 +40,11 @@ export const adminRoutes = [
     meta: { title: '预约管理', icon: 'Calendar', roles: ['卖家'] },
   },
   {
+    path: 'contracts',
+    component: () => import('../views/contracts/index.vue'),
+    meta: { title: '合同管理', icon: 'Document', roles: ['卖家'] },
+  },
+  {
     path: 'houseMap',
     component: () => import('../views/house/map/index.vue'),
     meta: { title: '地图找房', icon: 'LocationInformation', roles: ['卖家'] },
