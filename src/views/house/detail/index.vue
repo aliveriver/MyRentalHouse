@@ -16,7 +16,18 @@
       <!-- 房源基本信息 -->
       <div class="house-main-info">
         <div class="house-title-section">
-          <h1 class="house-title">{{ houseData.title }}</h1>
+          <div class="title-and-favorite">
+            <h1 class="house-title">{{ houseData.title }}</h1>
+            <el-button
+              :type="isFavorited ? 'danger' : 'primary'"
+              :icon="isFavorited ? 'StarFilled' : 'Star'"
+              @click="toggleFavorite"
+              :loading="favoriteLoading"
+              class="favorite-btn"
+            >
+              {{ isFavorited ? '已收藏' : '收藏' }}
+            </el-button>
+          </div>
           <div class="house-price">
             <span class="total-price">{{ houseData.totalPrice }}</span>
             <span class="price-unit">元</span>
@@ -176,9 +187,9 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Location, Guide, Phone } from '@element-plus/icons-vue'
+import { Location, Guide, Phone, Star, StarFilled } from '@element-plus/icons-vue'
 import AMapLoader from "@amap/amap-jsapi-loader"
-import { propertiesApi } from "@/api/index"
+import { propertiesApi, favoritesApi } from "@/api/index"
 import { key_web_js } from "@/components/map/config.js"
 import { all, houseTags, orientationTags, afitmentTags, typeTags } from "@/constant/tags"
 
@@ -258,6 +269,10 @@ const houseData = ref({
 
 // 推荐房源
 const recommendedHouses = ref([])
+
+// 收藏相关状态
+const isFavorited = ref(false)
+const favoriteLoading = ref(false)
 
 const getHouseList = () => {
   propertiesApi.getAllProperties().then(response => {
@@ -365,11 +380,56 @@ const getTargetHouseDetail = () => {
         return id ? typeTags.find(h => h.id === id).value : '未知类型'
       })();
       initMiniMap()
+      // 检查收藏状态
+      checkFavoriteStatus()
     }
   }).catch(error => {
     console.error('获取房源数据失败:', error)
     ElMessage.error('房源信息加载失败，请稍后再试。')
   })
+}
+
+// 检查收藏状态
+const checkFavoriteStatus = async () => {
+  try {
+    const response = await favoritesApi.checkFavorite(houseData.value.id)
+    if (response.success) {
+      isFavorited.value = response.data
+    }
+  } catch (error) {
+    console.error('检查收藏状态失败:', error)
+  }
+}
+
+// 切换收藏状态
+const toggleFavorite = async () => {
+  favoriteLoading.value = true
+  try {
+    if (isFavorited.value) {
+      // 取消收藏
+      const response = await favoritesApi.removeFavorite(houseData.value.id)
+      if (response.success) {
+        isFavorited.value = false
+        ElMessage.success('取消收藏成功')
+      } else {
+        ElMessage.error(response.errorMsg || '取消收藏失败')
+      }
+    } else {
+      // 添加收藏
+      const response = await favoritesApi.addFavorite(houseData.value.id)
+      if (response.success) {
+        isFavorited.value = true
+        ElMessage.success('收藏成功')
+      } else {
+        ElMessage.error(response.errorMsg || '收藏失败')
+      }
+    }
+  } catch (error) {
+    console.error('收藏操作失败:', error)
+    ElMessage.error('操作失败，请稍后再试')
+  } finally {
+    favoriteLoading.value = false
+  }
 }
 
 onMounted(() => {
@@ -420,14 +480,31 @@ onUnmounted(() => {
         justify-content: space-between;
         align-items: flex-start;
 
-        .house-title {
-          font-size: 24px;
-          font-weight: 600;
-          color: #333;
-          margin: 0;
-          line-height: 1.4;
+        .title-and-favorite {
+          display: flex;
+          align-items: flex-start;
+          gap: 15px;
           flex: 1;
-          margin-right: 20px;
+          flex-direction: column;
+
+          .house-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+            line-height: 1.4;
+            flex: 1;
+          }
+
+          .favorite-btn {
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+
+            &:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+          }
         }
 
         .house-price {
