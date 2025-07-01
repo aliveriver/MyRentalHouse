@@ -89,8 +89,8 @@ const rules = {
 
 const formRef = ref(null)
 const form = ref({
-  username: "aliveriver",
-  password: "123456"
+  username: "",
+  password: ""
 })
 
 const onSubmit = async () => {
@@ -124,7 +124,19 @@ const onSubmit = async () => {
           ElMessage.success('登录成功')
           // 等待路由生成完成后再跳转
           setTimeout(() => {
-            router.push("/")
+            // 根据用户角色跳转到对应的首页
+            if (response.data && response.data.role) {
+              const userRole = response.data.role.toLowerCase();
+              // 卖家相关角色
+              if (userRole === '卖家' || userRole === 'admin' || userRole === 'seller') {
+                router.push("/"); // 卖家默认到数据概览页
+              } else {
+                // 买家相关角色（包括 user、买家、buyer 等）
+                router.push("/house/info"); // 买家默认到房源资讯页
+              }
+            } else {
+              router.push("/house/info"); // 默认跳转到房源资讯页
+            }
           }, 100)
         } else {
           ElMessage.error('登录失败，请检查用户名和密码')
