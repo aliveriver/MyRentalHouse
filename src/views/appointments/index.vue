@@ -172,14 +172,20 @@
 
       <!-- 分页 -->
       <div class="pagination-wrapper">
+        <div class="pagination-info">
+          第{{ currentPage }}页 共{{ Math.ceil(totalCount / pageSize)
+
+
+          }}页，共{{ totalCount }}条
+        </div>
         <el-pagination
           :current-page="currentPage"
           :page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
           :total="totalCount"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
+          layout="prev, pager, next"
           @current-change="handleCurrentChange"
+          :pager-count="5"
+          small
         />
       </div>
     </el-card>
@@ -497,11 +503,6 @@ const clearFilters = () => {
 }
 
 // 分页处理
-const handleSizeChange = (newSize) => {
-  pageSize.value = newSize
-  currentPage.value = 1
-}
-
 const handleCurrentChange = (newPage) => {
   currentPage.value = newPage
 }
@@ -710,10 +711,18 @@ onMounted(() => {
     }
 
     .pagination-wrapper {
+      background: #fff;
       display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
       margin-top: 20px;
-      padding-top: 20px;
       border-top: 1px solid #e4e7ed;
+
+      .pagination-info {
+        font-size: 14px;
+        color: #606266;
+      }
     }
   }
 

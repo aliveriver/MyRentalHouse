@@ -200,50 +200,16 @@
     <div class="pagination-wrapper">
       <div class="pagination-info">
         第{{ currentPage }}页 共{{ Math.ceil(filteredInfos.length / pageSize)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        }}页， 总计{{ filteredInfos.length }}条数据
+        }}页，共{{ filteredInfos.length }}条
       </div>
       <el-pagination
         :current-page="currentPage"
         :page-size="pageSize"
-        :page-sizes="[10, 20, 50, 100]"
         :total="filteredInfos.length"
-        layout="sizes, prev, pager, next, jumper"
-        @size-change="handleSizeChange"
+        layout="prev, pager, next"
         @current-change="handleCurrentChange"
+        :pager-count="5"
+        small
       />
     </div>
 
@@ -529,12 +495,6 @@ const handleDelete = async (row) => {
   }
 }
 
-// 分页大小变化
-const handleSizeChange = (newSize) => {
-  pageSize.value = newSize
-  currentPage.value = 1
-}
-
 // 当前页变化
 const handleCurrentChange = (newPage) => {
   currentPage.value = newPage
@@ -625,16 +585,16 @@ onMounted(() => {
 }
 
 .pagination-wrapper {
+  background: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 20px;
-  padding: 0 20px;
+  padding: 16px 20px;
 }
 
 .pagination-info {
-  color: #909399;
   font-size: 14px;
+  color: #606266;
 }
 
 .info-detail {

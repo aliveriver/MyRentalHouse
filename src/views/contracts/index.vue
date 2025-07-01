@@ -145,14 +145,19 @@
         </el-table>
 
         <div class="pagination-wrapper">
+          <div class="pagination-info">
+            第{{ pagination.page }}页 共{{ Math.ceil(pagination.total / pagination.size)
+
+            }}页，共{{ pagination.total }}条
+          </div>
           <el-pagination
             :current-page="pagination.page"
             :page-size="pagination.size"
-            :page-sizes="[10, 20, 50, 100]"
             :total="pagination.total"
-            layout="total, sizes, prev, pager, next, jumper"
-            @size-change="handleSizeChange"
+            layout="prev, pager, next"
             @current-change="handlePageChange"
+            :pager-count="5"
+            small
           />
         </div>
       </el-card>
@@ -699,8 +704,20 @@ const getStatusTagType = (status) => {
       }
     }
 
+
     .pagination-wrapper {
+      background: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
       margin-top: 20px;
+      border-top: 1px solid #e4e7ed;
+
+      .pagination-info {
+        font-size: 14px;
+        color: #606266;
+      }
     }
   }
 
