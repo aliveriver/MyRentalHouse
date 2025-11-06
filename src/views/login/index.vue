@@ -18,7 +18,7 @@
         <el-form ref="formRef" :model="form" :rules="rules" class="form">
           <el-form-item prop="username">
             <el-input
-              v-model="form.username"
+              v-model="form.phoneNumber"
               placeholder="请输入您的账号"
               prefix-icon="User"
               size="large"
@@ -70,6 +70,8 @@ import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import useStore from "../../store/index"
 import { usersApi } from "../../api/index"
+import { getDefaultRouteByRole } from '@/utils/userRole'
+import { setToken, getUserInfoFromToken, validateToken } from '@/utils/jwt'
 
 const store = useStore()
 const router = useRouter()
@@ -77,9 +79,9 @@ const loading = ref(false)
 const rememberMe = ref(false)
 
 const rules = {
-  username: [
-    { required: true, message: '请输入账号', trigger: 'blur' },
-    { min: 3, max: 20, message: '账号长度应为3-20个字符', trigger: 'blur' }
+  phoneNumber: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { min: 11, max: 11, message: '手机号长度应为11个字符', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -89,62 +91,77 @@ const rules = {
 
 const formRef = ref(null)
 const form = ref({
-  username: "",
+  phoneNumber: "",
   password: ""
 })
 
 const onSubmit = async () => {
   await formRef.value.validate(async (valid, fields) => {
-    if (valid) {      try {
+    if (valid) {
+      try {
         loading.value = true
         // 调用登录API
         const response = await usersApi.login({
-          username: form.value.username,
+          phoneNumber: form.value.phoneNumber,
           password: form.value.password
-        });        // 登录成功，保存token和用户信息
+        });
+
+        console.log('Login response:', response);
+
+        // 登录成功，保存token和用户信息
         if (response && response.success) {
-          // 保存token（根据API文档，token可能在response.data中）
+          // 提取 JWT token
+          let token = null;
           if (response.data && response.data.token) {
-            localStorage.setItem('token', response.data.token)
+            token = response.data.token;
+          } else if (response.token) {
+            token = response.token;
           }
 
-          // 如果勾选了记住密码，设置更长的过期时间
-          if (rememberMe.value) {
-            localStorage.setItem('rememberMe', 'true')
-            localStorage.setItem('rememberUntil', Date.now() + 7 * 24 * 60 * 60 * 1000) // 7天
+          if (!token) {
+            ElMessage.error('登录失败，未获取到token');
+            return;
           }
+
+          // 保存JWT token到localStorage（使用JWT工具）
+          setToken(token, rememberMe.value);
+
+          // 从token中提取用户信息
+          const userInfoFromToken = getUserInfoFromToken(token);
+
+          if (!userInfoFromToken) {
+            ElMessage.error('登录失败，无法解析用户信息');
+            return;
+          }
+
+          console.log('User info from token:', userInfoFromToken);
+
+          // 合并响应中的其他用户信息（如果有）
+          const userInfo = {
+            ...response.data,
+            ...userInfoFromToken,
+          };
 
           // 保存用户信息到store（这会触发动态路由生成）
           store.setIsLogin(true)
-          if (response.data) {
-            // 设置用户信息，这会自动触发动态路由生成
-            store.setUserInfo(response.data)
-          }
+          store.setUserInfo(userInfo)
 
           ElMessage.success('登录成功')
+
           // 等待路由生成完成后再跳转
           setTimeout(() => {
             // 根据用户角色跳转到对应的首页
-            if (response.data && response.data.role) {
-              const userRole = response.data.role.toLowerCase();
-              // 卖家相关角色
-              if (userRole === '卖家' || userRole === 'admin' || userRole === 'seller') {
-                router.push("/"); // 卖家默认到数据概览页
-              } else {
-                // 买家相关角色（包括 user、买家、buyer 等）
-                router.push("/house/info"); // 买家默认到房源资讯页
-              }
-            } else {
-              router.push("/house/info"); // 默认跳转到房源资讯页
-            }
+            const defaultRoute = getDefaultRouteByRole(userInfo.role);
+            console.log('Redirecting to:', defaultRoute);
+            router.push(defaultRoute);
           }, 100)
         } else {
-          ElMessage.error('登录失败，请检查用户名和密码')
+          ElMessage.error(response?.message || '登录失败，请检查用户名和密码')
         }
 
       } catch (error) {
         console.error('Login error:', error)
-        ElMessage.error(error.message || '登录失败，请检查用户名和密码')
+        ElMessage.error(error.response?.data?.message || error.message || '登录失败，请检查用户名和密码')
       } finally {
         loading.value = false
       }
@@ -160,10 +177,17 @@ const goToRegister = () => {
 // 检查是否已经登录
 const checkLoginStatus = () => {
   const token = localStorage.getItem('token')
-  if (token) {
-    // 如果已经有token，直接跳转到首页
-    store.setIsLogin(true)
-    router.push('/')
+  if (token && validateToken(token)) {
+    // 如果已经有有效的token，从token中恢复用户信息
+    const userInfo = getUserInfoFromToken(token)
+    if (userInfo) {
+      store.setIsLogin(true)
+      store.setUserInfo(userInfo)
+
+      // 跳转到对应的首页
+      const defaultRoute = getDefaultRouteByRole(userInfo.role)
+      router.push(defaultRoute || '/')
+    }
   }
 }
 

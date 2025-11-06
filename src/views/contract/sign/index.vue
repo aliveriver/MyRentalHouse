@@ -195,7 +195,8 @@ onMounted(() => {
 // 初始化表单
 const initializeForm = () => {
   contractForm.propertyid = propertyId.value
-  contractForm.buyerid = store.userInfo?.userid || ''
+  // 兼容不同的用户ID字段名
+  contractForm.buyerid = store.userInfo?.id || store.userInfo?.userid || ''
 
   // 设置默认签约时间为当前时间
   const now = new Date()

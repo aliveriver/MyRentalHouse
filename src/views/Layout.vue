@@ -139,6 +139,7 @@
 
 
 
+
                     }}元/m²</span
                   >
                 </div>
@@ -558,16 +559,14 @@ const signContract = (appointment) => {
 
 const logout = async () => {
   try {
-    // 调用后端登出API
-    await usersApi.logout();
-
-    // 清除前端状态
+    // JWT认证不需要调用后端登出API，直接清除前端token即可
+    // 清除前端状态和JWT token
     store.logout();
-    ElMessage.success('登出成功');
+    ElMessage.success('退出成功');
     router.push("/login");
   } catch (error) {
     console.error('Logout error:', error);
-    // 即使后端登出失败，也清除前端状态
+    // 即使出错也清除前端状态
     store.logout();
     ElMessage.warning('登出成功');
     router.push("/login");

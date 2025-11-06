@@ -1,3 +1,9 @@
+import {
+  getUserInfoFromToken,
+  isRememberMeValid,
+  validateToken,
+} from '@/utils/jwt';
+import { getDefaultRouteByRole } from '@/utils/userRole';
 import { createRouter, createWebHistory } from 'vue-router';
 
 import Layout from '../views/Layout.vue';
@@ -7,47 +13,59 @@ export const adminRoutes = [
   {
     path: '',
     component: () => import('../views/home/index.vue'),
-    meta: { title: '数据概览', icon: 'DataAnalysis', roles: ['卖家'] },
+    meta: {
+      title: '数据概览',
+      icon: 'DataAnalysis',
+      roles: ['卖家', '管理员'],
+    },
   },
   {
     path: 'house/list',
     component: () => import('../views/house/list/index.vue'),
-    meta: { title: '房源列表', icon: 'House', roles: ['卖家'] },
+    meta: { title: '房源列表', icon: 'House', roles: ['卖家', '管理员'] },
   },
   {
     path: 'house/add',
     component: () => import('../views/house/list/add.vue'),
-    meta: { title: '房源编辑', isHidden: true, roles: ['卖家'] },
+    meta: { title: '房源编辑', isHidden: true, roles: ['卖家', '管理员'] },
   },
   {
     path: 'house/detail/:id',
     component: () => import('../views/house/detail/index.vue'),
-    meta: { title: '房源详情', isHidden: true, roles: ['卖家', 'user'] },
+    meta: {
+      title: '房源详情',
+      isHidden: true,
+      roles: ['卖家', '管理员', '买家'],
+    },
   },
   {
     path: 'info/list',
     component: () => import('../views/info/list/index.vue'),
-    meta: { title: '资讯管理', icon: 'Document', roles: ['卖家'] },
+    meta: { title: '资讯管理', icon: 'Document', roles: ['卖家', '管理员'] },
   },
   {
     path: 'info/list/add',
     component: () => import('../views/info/list/add.vue'),
-    meta: { title: '资讯编辑', isHidden: true, roles: ['卖家'] },
+    meta: { title: '资讯编辑', isHidden: true, roles: ['卖家', '管理员'] },
   },
   {
     path: 'appointments',
     component: () => import('../views/appointments/index.vue'),
-    meta: { title: '预约管理', icon: 'Calendar', roles: ['卖家'] },
+    meta: { title: '预约管理', icon: 'Calendar', roles: ['卖家', '管理员'] },
   },
   {
     path: 'contracts',
     component: () => import('../views/contracts/index.vue'),
-    meta: { title: '合同管理', icon: 'Document', roles: ['卖家'] },
+    meta: { title: '合同管理', icon: 'Document', roles: ['卖家', '管理员'] },
   },
   {
     path: 'person',
     component: () => import('../views/person/index.vue'),
-    meta: { title: '个人中心', icon: 'Setting', roles: ['卖家', 'user'] },
+    meta: {
+      title: '个人中心',
+      icon: 'Setting',
+      roles: ['卖家', '管理员', '买家'],
+    },
   },
 ];
 
@@ -56,12 +74,12 @@ export const userRoutes = [
   {
     path: 'house/info',
     component: () => import('../views/house/info/index.vue'),
-    meta: { title: '房源资讯', icon: 'Tickets', roles: ['买家', 'user'] },
+    meta: { title: '房源资讯', icon: 'Tickets', roles: ['买家'] },
   },
   {
     path: 'house/detail/:id',
     component: () => import('../views/house/detail/index.vue'),
-    meta: { title: '房源详情', isHidden: true, roles: ['买家', 'user'] },
+    meta: { title: '房源详情', isHidden: true, roles: ['买家'] },
   },
   {
     path: 'houseMap',
@@ -71,7 +89,7 @@ export const userRoutes = [
   {
     path: 'person',
     component: () => import('../views/person/index.vue'),
-    meta: { title: '个人中心', icon: 'Setting', roles: ['买家', 'user'] },
+    meta: { title: '个人中心', icon: 'Setting', roles: ['买家'] },
   },
   {
     path: '/contract/sign/:propertyId',
@@ -79,7 +97,7 @@ export const userRoutes = [
     component: () => import('../views/contract/sign/index.vue'),
     meta: {
       title: '签署购房合同',
-      roles: ['买家', 'user'],
+      roles: ['买家'],
       isHidden: true,
     },
   },
@@ -90,7 +108,11 @@ export const baseRoutes = [
   {
     path: 'person',
     component: () => import('../views/person/index.vue'),
-    meta: { title: '个人中心', icon: 'Setting', roles: ['卖家', 'user'] },
+    meta: {
+      title: '个人中心',
+      icon: 'Setting',
+      roles: ['卖家', '管理员', '买家'],
+    },
   },
 ];
 
@@ -190,75 +212,67 @@ router.beforeEach(async (to, from, next) => {
     routes: store.routes,
   });
 
-  // 检查token是否存在
+  // 检查token是否存在和有效
   const token = localStorage.getItem('token');
+  const tokenValid = token && validateToken(token);
 
-  // 检查记住密码功能
-  const rememberMe = localStorage.getItem('rememberMe');
-  const rememberUntil = localStorage.getItem('rememberUntil');
+  if (tokenValid) {
+    // Token有效，检查记住密码功能
+    if (!isRememberMeValid() && localStorage.getItem('rememberMe')) {
+      // 记住密码已过期，清除相关数据
+      store.logout();
 
-  if (store.isLogin) {
-    // 如果有token，检查是否过期（针对记住密码功能）
-    if (rememberMe && rememberUntil) {
-      if (Date.now() > parseInt(rememberUntil)) {
-        // 记住密码已过期，清除相关数据
-        localStorage.removeItem('token');
-        localStorage.removeItem('rememberMe');
-        localStorage.removeItem('rememberUntil');
-        store.logout();
-
-        if (!whiteList.includes(to.path)) {
-          next('/login');
-          return;
-        }
+      if (!whiteList.includes(to.path)) {
+        next('/login');
+        return;
       }
     }
 
     // 设置登录状态
     store.setIsLogin(true);
 
-    // 如果没有用户信息或路由信息，需要重新获取
+    // 如果没有用户信息或路由信息，从token中恢复
     if (!store.userInfo || store.routes.length === 0) {
       try {
-        // 这里可以调用API获取用户信息
-        // const userInfo = await getUserInfo();
-        // store.setUserInfo(userInfo);
+        // 从JWT token中提取用户信息
+        const userInfo = getUserInfoFromToken(token);
 
-        // 临时处理：如果有token但没有用户信息，可以设置默认用户信息
-        if (!store.userInfo) {
-          console.warn(
-            'Token exists but no user info found. You may need to implement user info retrieval.'
-          );
+        if (userInfo) {
+          // 设置用户信息，这会自动触发动态路由生成
+          store.setUserInfo(userInfo);
+        } else {
+          // Token无效，清除登录状态
+          console.error('无法从token中提取用户信息');
+          store.logout();
+          next('/login');
+          return;
         }
       } catch (error) {
-        console.error('Failed to get user info:', error);
+        console.error('Failed to get user info from token:', error);
         store.logout();
         next('/login');
         return;
       }
-    } // 如果已登录用户访问登录页，重定向到首页
+    }
+
+    // 如果已登录用户访问登录页，重定向到首页
     if (to.path === '/login') {
       // 根据用户角色重定向到对应的首页
       if (store.userInfo && store.userInfo.role) {
-        const userRole = store.userInfo.role.toLowerCase();
-        // 卖家相关角色
-        if (
-          userRole === '卖家' ||
-          userRole === 'admin' ||
-          userRole === 'seller'
-        ) {
-          next('/'); // 卖家默认到数据概览页
-        } else {
-          // 买家相关角色（包括 user、买家、buyer 等）
-          next('/house/info'); // 买家默认到房源资讯页
-        }
+        const defaultRoute = getDefaultRouteByRole(store.userInfo.role);
+        next(defaultRoute);
       } else {
         next('/house/info'); // 默认跳转到房源资讯页
       }
       return;
     }
   } else {
-    // 没有token，清除登录状态
+    // Token不存在或无效，清除登录状态
+    if (token) {
+      // Token存在但无效（可能过期），清除它
+      console.log('Token无效或已过期，清除登录状态');
+      store.logout();
+    }
     store.setIsLogin(false);
 
     // 如果访问的不是白名单页面，重定向到登录页

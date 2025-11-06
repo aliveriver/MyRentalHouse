@@ -1,5 +1,7 @@
 import { addDynamicRoutes, adminRoutes, userRoutes } from '@/routers/index';
 import { filterRoutesByRole } from '@/utils/auth';
+import { removeToken } from '@/utils/jwt';
+import { isSellerRole, normalizeRole } from '@/utils/userRole';
 import { defineStore } from 'pinia';
 
 export default defineStore({
@@ -24,31 +26,30 @@ export default defineStore({
       // 根据用户信息动态设置路由
       this.generateRoutes(userInfo);
     },
-    // 根据用户角色生成路由
+    // 根据用户角色生成路由 - 使用统一的角色工具
     generateRoutes(userInfo) {
       let accessibleRoutes = [];
 
       if (userInfo && userInfo.role) {
-        const userRole = userInfo.role.toLowerCase();
+        const normalizedRole = normalizeRole(userInfo.role);
 
         // 根据角色获取对应的路由配置
         let availableRoutes = [];
-        // 卖家相关角色
-        if (
-          userRole === '卖家' ||
-          userRole === 'admin' ||
-          userRole === 'seller'
-        ) {
+        // 卖家和管理员相关角色
+        if (isSellerRole(userInfo.role)) {
           availableRoutes = [...adminRoutes];
         } else {
-          // 买家相关角色（包括 user、买家、buyer 等）
+          // 买家相关角色
           availableRoutes = [...userRoutes];
         }
 
         // 过滤路由：只显示当前用户角色可访问的路由
-        accessibleRoutes = filterRoutesByRole(availableRoutes, userRole);
+        accessibleRoutes = filterRoutesByRole(availableRoutes, normalizedRole);
 
-        console.log(`Generated routes for ${userRole}:`, accessibleRoutes);
+        console.log(
+          `Generated routes for ${normalizedRole}:`,
+          accessibleRoutes
+        );
       }
 
       // 设置路由到 store
@@ -61,7 +62,8 @@ export default defineStore({
       this.isLogin = false;
       this.userInfo = null;
       this.routes = [];
-      localStorage.removeItem('token');
+      // 使用JWT工具移除token
+      removeToken();
       // 清除动态路由
       addDynamicRoutes([]);
     },

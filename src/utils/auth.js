@@ -8,9 +8,11 @@
  */
 export function filterRoutesByRole(routes, userRole) {
   if (!userRole) return [];
-  
-  return routes.filter(route => {
-    return route.meta?.roles && route.meta.roles.includes(userRole.toLowerCase());
+
+  return routes.filter((route) => {
+    return (
+      route.meta?.roles && route.meta.roles.includes(userRole.toLowerCase())
+    );
   });
 }
 
@@ -23,29 +25,35 @@ export function filterRoutesByRole(routes, userRole) {
  */
 export function hasRoutePermission(path, userRole, routes) {
   if (!userRole || !routes) return false;
-  
-  const route = routes.find(r => r.path === path);
+
+  const route = routes.find((r) => r.path === path);
   if (!route) return false;
-  
+
   return route.meta?.roles && route.meta.roles.includes(userRole.toLowerCase());
 }
 
 /**
- * 获取用户默认首页路径
+ * 获取用户默认首页路径 - 与后端UserRole枚举保持一致
  * @param {string} userRole - 用户角色
  * @returns {string} 默认路径
  */
 export function getDefaultRoute(userRole) {
   if (!userRole) return '/login';
-  
+
   const role = userRole.toLowerCase();
-  
+
   switch (role) {
+    case '管理员':
     case 'admin':
       return '/'; // 管理员默认到数据概览
+    case '卖家':
+    case 'seller':
+      return '/'; // 卖家默认到数据概览
+    case '买家':
+    case 'buyer':
     case 'user':
-      return '/house/info'; // 普通用户默认到房源资讯
+      return '/house/info'; // 买家默认到房源资讯
     default:
-      return '/person'; // 其他角色默认到个人中心
+      return '/house/info'; // 默认到房源资讯页
   }
 }

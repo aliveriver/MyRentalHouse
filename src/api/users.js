@@ -5,24 +5,24 @@ const usersApi = {
   // 用户登录
   login(loginData) {
     return request({
-      url: '/users/login',
+      url: '/api/auth/login',
       method: 'post',
       data: loginData,
     });
   },
 
   // 获取当前用户信息
-  getCurrentUser(id) {
+  getCurrentUser() {
     return request({
-      url: '/users/' + id,
+      url: '/auth/me',
       method: 'get',
     });
   },
 
-  // 创建用户
+  // 创建用户（注册）
   createUser(userData) {
     return request({
-      url: '/users/register',
+      url: '/api/auth/register',
       method: 'post',
       data: userData,
     });

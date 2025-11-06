@@ -224,6 +224,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { usersApi } from '../../api/index'
 import useStore from "@/store/index"
+import { getRoleDisplayName } from '@/utils/userRole'
 
 const store = useStore()
 const passwordFormRef = ref(null)
@@ -302,15 +303,9 @@ const passwordRules = {
   ]
 }
 
-// 根据角色获取文本
+// 根据角色获取文本 - 使用统一的角色工具
 const getRoleText = (role) => {
-  const roleMap = {
-    'admin': '管理员',
-    'user': '普通用户',
-    '卖家': '卖家',
-    '买家': '买家'
-  }
-  return roleMap[role] || '普通用户'
+  return getRoleDisplayName(role);
 }
 
 // 格式化日期
@@ -337,18 +332,28 @@ const formatDateTime = (dateStr) => {
 
 // 初始化表单数据
 const initFormData = async () => {
-  const response = await usersApi.getCurrentUser(userInfo.value.userid)
-  if (response.success) {
-    const user = response.data
-    userForm.userid = user.userid || ''
-    userForm.username = user.username || ''
-    userForm.email = user.email || ''
-    userForm.password = user.password || ''
-    userForm.phonenumber = user.phonenumber || ''
-    userForm.registrationtime = user.registrationtime || ''
-    userForm.role = user.role || ''
-  } else {
-    ElMessage.error(response.errorMsg || '获取用户信息失败')
+  try {
+    // 调用新的查询接口 GET /auth/me，不需要传递用户ID
+    const response = await usersApi.getCurrentUser()
+
+    if (response.success) {
+      const user = response.data
+      // 适配新接口返回的字段：userid, username, avatar, registrationtime, role
+      userForm.userid = user.userid || ''
+      userForm.username = user.username || ''
+      userForm.email = user.email || ''
+      userForm.password = user.password || ''
+      userForm.phonenumber = user.phoneNumber || user.phonenumber || ''
+      userForm.registrationtime = user.registrationtime || user.registrationTime || ''
+      userForm.role = user.role || ''
+
+      console.log('用户信息加载成功:', user)
+    } else {
+      ElMessage.error(response.errorMsg || '获取用户信息失败')
+    }
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    ElMessage.error('获取用户信息失败：' + (error.response?.data?.message || error.message))
   }
 }
 
@@ -375,6 +380,7 @@ const saveProfile = async () => {
 
     saving.value = true
 
+    const userId = userInfo.value.id || userInfo.value.userid;
 
     const updateData = {
       username: userForm.username,
@@ -385,15 +391,17 @@ const saveProfile = async () => {
       role: userForm.role
     }
 
-    const response = await usersApi.updateUser(userInfo.value.userid, updateData)
+    const response = await usersApi.updateUser(userId, updateData)
 
     if (response.success) {
       ElMessage.success('个人信息保存成功')
       // 更新store中的用户信息
       store.setUserInfo({
         ...userInfo.value,
+        name: userForm.username,
         username: userForm.username,
         email: userForm.email,
+        phoneNumber: userForm.phonenumber,
         phonenumber: userForm.phonenumber
       })
       // 清空密码字段
@@ -443,6 +451,8 @@ const changePassword = async () => {
 
     changingPassword.value = true
 
+    const userId = userInfo.value.id || userInfo.value.userid;
+
     const passwordData = {
       username: userForm.username,
       email: userForm.email,
@@ -452,7 +462,7 @@ const changePassword = async () => {
       role: userForm.role
     }
 
-    const response = await usersApi.updateUser(userInfo.value.userid, passwordData)
+    const response = await usersApi.updateUser(userId, passwordData)
 
     if (response.success) {
       ElMessage.success('密码修改成功，请重新登录')

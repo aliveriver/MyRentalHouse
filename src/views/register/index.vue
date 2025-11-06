@@ -70,6 +70,44 @@
             />
           </el-form-item>
 
+          <el-form-item prop="role">
+            <el-select
+              v-model="form.role"
+              placeholder="请选择用户类型"
+              size="large"
+              class="input-field role-select"
+              style="width: 100%"
+              prefix-icon="UserFilled"
+            >
+              <el-option
+                :key="BUYER"
+                :label="`${BUYER} - 浏览和购买房源`"
+                :value="BUYER"
+              >
+                <span style="float: left">{{ BUYER }}</span>
+                <span style="float: right; color: #8492a6; font-size: 13px"
+                  >浏览和购买房源</span
+                >
+              </el-option>
+              <el-option
+                :key="SELLER"
+                :label="`${SELLER} - 发布和管理房源`"
+                :value="SELLER"
+              >
+                <span style="float: left">{{ SELLER }}</span>
+                <span style="float: right; color: #8492a6; font-size: 13px"
+                  >发布和管理房源</span
+                >
+              </el-option>
+            </el-select>
+            <div class="role-tip">
+              <span class="tip-text">
+                <el-icon><InfoFilled /></el-icon>
+                选择角色类型将决定您可以使用的功能
+              </span>
+            </div>
+          </el-form-item>
+
           <div class="form-options">
             <el-checkbox v-model="agreeTerms" class="agree-checkbox">
               我已阅读并同意<span class="terms-link">《用户协议》</span>和<span
@@ -105,12 +143,16 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router"
 import { ElMessage } from 'element-plus'
-import { User, Lock, Message, Phone } from '@element-plus/icons-vue'
+import { User, Lock, Message, Phone, UserFilled, InfoFilled } from '@element-plus/icons-vue'
 import usersApi from '../../api/users'
+import { USER_ROLES } from '@/utils/userRole'
 
 const router = useRouter()
 const loading = ref(false)
 const agreeTerms = ref(false)
+
+// 将USER_ROLES暴露给模板使用
+const { BUYER, SELLER, ADMIN } = USER_ROLES
 
 // 表单验证规则
 const rules = {
@@ -155,7 +197,7 @@ const form = ref({
   confirmPassword: "",
   email: "",
   phonenumber: "",
-  role: "1"
+  role: USER_ROLES.BUYER  // 默认注册为买家角色
 })
 
 // 提交注册表单
@@ -169,16 +211,23 @@ const onSubmit = async () => {
     if (valid) {
       loading.value = true
       try {
-        // 构造注册数据，按照接口文档格式
-        const registerData = {
-          username: form.value.username,
-          password: form.value.password,
-          email: form.value.email,
-          phonenumber: form.value.phonenumber,
-          registrationtime: new Date().toISOString(),
-          role: form.value.role
+        // 构造注册数据，按照新接口文档格式
+        // role: 1-买家, 2-卖家
+        let roleNum = 1; // 默认买家
+        if (form.value.role === USER_ROLES.BUYER) {
+          roleNum = 1;
+        } else if (form.value.role === USER_ROLES.SELLER) {
+          roleNum = 2;
         }
 
+        const registerData = {
+          userName: form.value.username,  // 注意：接口要求字段名为 userName
+          phoneNumber: form.value.phonenumber,  // 使用驼峰命名
+          password: form.value.password,
+          role: roleNum  // 使用数字：1-买家, 2-卖家
+        }
+
+        console.log('注册数据:', registerData);
         const response = await usersApi.createUser(registerData)
 
         if (response.success === true) {
@@ -189,7 +238,7 @@ const onSubmit = async () => {
         }
       } catch (error) {
         console.error('注册失败:', error)
-        ElMessage.error('注册失败：' + (error.message || '网络错误'))
+        ElMessage.error('注册失败：' + (error.response?.data?.message || error.message || '网络错误'))
       } finally {
         loading.value = false
       }
@@ -312,6 +361,38 @@ const goToLogin = () => {
           :deep(.el-select .el-input__wrapper) {
             border-radius: 6px;
             border: 1px solid #e0e0e0;
+          }
+
+          :deep(.el-select__placeholder) {
+            color: #999;
+          }
+        }
+
+        .role-select {
+          :deep(.el-select-dropdown__item) {
+            padding: 12px 20px;
+
+            .el-option__text {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+          }
+        }
+
+        .role-tip {
+          margin-top: 5px;
+
+          .tip-text {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: #909399;
+
+            .el-icon {
+              font-size: 14px;
+            }
           }
         }
 
