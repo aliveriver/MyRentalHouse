@@ -10,7 +10,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 // 管理员路由
 export const adminRoutes = [
   {
-    path: '',
+    path: 'home', // 改为具体路径，避免空路径导致的路由冲突
     component: () => import('../views/home/index.vue'),
     meta: {
       title: '数据概览',

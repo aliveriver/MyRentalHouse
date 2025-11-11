@@ -99,7 +99,7 @@ export function getDefaultRouteByRole(role) {
   switch (normalizedRole) {
     case USER_ROLES.ADMIN:
     case USER_ROLES.SELLER:
-      return '/'; // 卖家和管理员默认到数据概览
+      return '/home'; // 卖家和管理员默认到数据概览（路径改为 /home）
     case USER_ROLES.BUYER:
     default:
       return '/house/info'; // 买家默认到房源资讯
