@@ -2,6 +2,7 @@
 import { contractsApi } from './contracts';
 import dashboardApi from './dashboard';
 import favoritesApi from './favorites';
+import filesApi from './files';
 import infoApi from './info';
 import profileApi from './profile';
 import propertiesApi from './properties';
@@ -13,6 +14,7 @@ export {
   contractsApi,
   dashboardApi,
   favoritesApi,
+  filesApi,
   infoApi,
   profileApi,
   propertiesApi,
@@ -32,4 +34,5 @@ export default {
   viewingAppointments: viewingAppointmentsApi,
   contracts: contractsApi,
   dashboard: dashboardApi,
+  files: filesApi,
 };

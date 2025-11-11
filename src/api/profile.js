@@ -1,11 +1,17 @@
 import request from './request';
+import { extractUserId } from '@/utils/jwt';
 
 // 用户个人资料相关接口
 const profileApi = {
   // 获取当前用户信息
   getCurrentUser() {
+    // 从JWT token中提取用户ID
+    const userId = extractUserId();
+    if (!userId) {
+      return Promise.reject(new Error('未找到用户ID，请先登录'));
+    }
     return request({
-      url: '/auth/me',
+      url: `/api/users/${userId}`,
       method: 'get',
     });
   },

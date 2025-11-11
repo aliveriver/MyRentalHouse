@@ -18,8 +18,8 @@
         <el-form ref="formRef" :model="form" :rules="rules" class="form">
           <el-form-item prop="username">
             <el-input
-              v-model="form.phoneNumber"
-              placeholder="请输入您的账号"
+              v-model="form.username"
+              placeholder="请输入用户名"
               prefix-icon="User"
               size="large"
               class="input-field"
@@ -70,7 +70,6 @@ import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
 import useStore from "../../store/index"
 import { usersApi } from "../../api/index"
-import { getDefaultRouteByRole } from '@/utils/userRole'
 import { setToken, getUserInfoFromToken, validateToken } from '@/utils/jwt'
 
 const store = useStore()
@@ -79,9 +78,9 @@ const loading = ref(false)
 const rememberMe = ref(false)
 
 const rules = {
-  phoneNumber: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { min: 11, max: 11, message: '手机号长度应为11个字符', trigger: 'blur' }
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '用户名长度应为3-20个字符', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -91,7 +90,7 @@ const rules = {
 
 const formRef = ref(null)
 const form = ref({
-  phoneNumber: "",
+  username: "",
   password: ""
 })
 
@@ -100,9 +99,9 @@ const onSubmit = async () => {
     if (valid) {
       try {
         loading.value = true
-        // 调用登录API
+        // 调用登录API，使用后端字段命名：username, password
         const response = await usersApi.login({
-          phoneNumber: form.value.phoneNumber,
+          username: form.value.username,
           password: form.value.password
         });
 
@@ -123,6 +122,21 @@ const onSubmit = async () => {
             return;
           }
 
+          // 先清除旧的路由和用户信息（防止切换账号时路由冲突）
+          // 注意：先清除旧数据，再保存新 token
+          store.isLogin = false;
+          store.userInfo = null;
+          store.routes = [];
+          // 清除旧的动态路由
+          const { addDynamicRoutes } = await import('@/routers/index');
+          addDynamicRoutes([]);
+          // 清除旧的 localStorage 用户信息
+          try {
+            localStorage.removeItem('userInfo');
+          } catch (e) {
+            console.warn('清除旧 userInfo 失败:', e);
+          }
+
           // 保存JWT token到localStorage（使用JWT工具）
           setToken(token, rememberMe.value);
 
@@ -135,12 +149,25 @@ const onSubmit = async () => {
           }
 
           console.log('User info from token:', userInfoFromToken);
+          console.log('Response data:', response.data);
 
-          // 合并响应中的其他用户信息（如果有）
+          // 合并响应中的用户信息（优先使用响应中的用户信息，特别是role字段）
+          const responseUser = response.data?.user || response.data;
           const userInfo = {
-            ...response.data,
             ...userInfoFromToken,
+            ...responseUser,
+            // 确保role字段存在（优先使用响应中的role）
+            role: responseUser?.role || userInfoFromToken?.role,
           };
+
+          console.log('Final user info:', userInfo);
+          
+          // 保存用户信息到 localStorage（作为备份，以防 token 中没有 role）
+          try {
+            localStorage.setItem('userInfo', JSON.stringify(userInfo));
+          } catch (e) {
+            console.warn('保存用户信息到 localStorage 失败:', e);
+          }
 
           // 保存用户信息到store（这会触发动态路由生成）
           store.setIsLogin(true)
@@ -149,12 +176,23 @@ const onSubmit = async () => {
           ElMessage.success('登录成功')
 
           // 等待路由生成完成后再跳转
-          setTimeout(() => {
-            // 根据用户角色跳转到对应的首页
-            const defaultRoute = getDefaultRouteByRole(userInfo.role);
-            console.log('Redirecting to:', defaultRoute);
-            router.push(defaultRoute);
-          }, 100)
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // 直接使用router.push跳转，路由守卫会处理重定向
+          console.log('登录成功，准备跳转到 /house/info');
+          try {
+            await router.push('/house/info');
+          } catch (err) {
+            console.error('路由跳转失败:', err);
+            // 如果跳转失败，使用replace
+            try {
+              await router.replace('/house/info');
+            } catch (replaceErr) {
+              console.error('路由replace也失败:', replaceErr);
+              // 最后尝试使用window.location
+              window.location.href = '/house/info';
+            }
+          }
         } else {
           ElMessage.error(response?.message || '登录失败，请检查用户名和密码')
         }
@@ -174,7 +212,7 @@ const goToRegister = () => {
   router.push('/register')
 }
 
-// 检查是否已经登录
+// 检查是否已经登录（路由守卫会处理重定向，这里只恢复状态）
 const checkLoginStatus = () => {
   const token = localStorage.getItem('token')
   if (token && validateToken(token)) {
@@ -183,10 +221,7 @@ const checkLoginStatus = () => {
     if (userInfo) {
       store.setIsLogin(true)
       store.setUserInfo(userInfo)
-
-      // 跳转到对应的首页
-      const defaultRoute = getDefaultRouteByRole(userInfo.role)
-      router.push(defaultRoute || '/')
+      // 路由守卫会自动处理重定向，这里不需要手动跳转
     }
   }
 }

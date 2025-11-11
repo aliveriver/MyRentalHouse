@@ -1,11 +1,12 @@
 import request from './request';
+import { extractUserId } from '@/utils/jwt';
 
 // 用户相关接口
 const usersApi = {
   // 用户登录
   login(loginData) {
     return request({
-      url: '/api/auth/login',
+      url: '/users/login',
       method: 'post',
       data: loginData,
     });
@@ -13,8 +14,13 @@ const usersApi = {
 
   // 获取当前用户信息
   getCurrentUser() {
+    // 从JWT token中提取用户ID
+    const userId = extractUserId();
+    if (!userId) {
+      return Promise.reject(new Error('未找到用户ID，请先登录'));
+    }
     return request({
-      url: '/auth/me',
+      url: `/users/${userId}`,
       method: 'get',
     });
   },
@@ -22,7 +28,7 @@ const usersApi = {
   // 创建用户（注册）
   createUser(userData) {
     return request({
-      url: '/api/auth/register',
+      url: '/users/register',
       method: 'post',
       data: userData,
     });
@@ -95,6 +101,18 @@ const usersApi = {
       url: `/users/${userid}`,
       method: 'put',
       data: passwordData,
+    });
+  },
+
+  /**
+   * 更新用户头像
+   * @param {string} avatarUri - 头像URI
+   */
+  updateAvatar(avatarUri) {
+    return request({
+      url: '/users/avatar',
+      method: 'put',
+      data: { avatar: avatarUri },
     });
   },
 };

@@ -37,8 +37,10 @@
             <div>
               <el-avatar
                 :size="44"
-                src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"
-              />
+                :src="userAvatarUrl"
+              >
+                <el-icon><User /></el-icon>
+              </el-avatar>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -275,12 +277,22 @@ import { ref, computed, watch, onMounted } from 'vue'
 import useStore from "../store/index";
 import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Location, StarFilled, Calendar } from '@element-plus/icons-vue'
-import { usersApi, favoritesApi, propertiesApi, viewingAppointmentsApi, contractsApi } from "../api/index";
+import { Location, StarFilled, Calendar, User } from '@element-plus/icons-vue'
+import { usersApi, favoritesApi, propertiesApi, viewingAppointmentsApi, contractsApi, filesApi } from "../api/index";
 
 const router = useRouter();
 const route = useRoute();
 const store = useStore();
+
+// 用户头像 URL
+const userAvatarUrl = computed(() => {
+  const userInfo = store.userInfo;
+  if (userInfo?.avatar) {
+    const url = filesApi.getFileUrl(userInfo.avatar);
+    return url;
+  }
+  return null; // 返回 null 会显示默认图标
+});
 
 // 菜单激活状态
 const activeMenuIndex = ref('/')
@@ -355,8 +367,15 @@ const loadFavorites = async () => {
     const houseAll = await propertiesApi.getAllProperties()
     const favorites = await favoritesApi.getFavorites(favoritesPage.value, favoritesPageSize.value)
     if (houseAll.success && favorites.success) {
+      // 确保 favorites.data.data 是数组
+      const favoritesData = Array.isArray(favorites.data?.data) 
+        ? favorites.data.data 
+        : Array.isArray(favorites.data) 
+          ? favorites.data 
+          : []
+      
       const filterData = houseAll.data.filter(house => {
-        return favorites.data.data.some(fav => {
+        return favoritesData.some(fav => {
           return fav.propertyId === house.propertyid
         })
       })

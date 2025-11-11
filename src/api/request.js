@@ -49,10 +49,13 @@ request.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
 
+      // 提取错误信息，优先使用后端返回的 errorMsg
+      const errorMessage = data?.errorMsg || data?.message || data?.error || '请求失败';
+      
       switch (status) {
         case 401:
           // JWT token过期或无效
-          ElMessage.error('登录已过期，请重新登录');
+          ElMessage.error(errorMessage || '登录已过期，请重新登录');
           // 清除token并跳转到登录页
           localStorage.removeItem('token');
           localStorage.removeItem('rememberMe');
@@ -63,16 +66,16 @@ request.interceptors.response.use(
           }
           break;
         case 403:
-          ElMessage.error('权限不足，无法访问该资源');
+          ElMessage.error(errorMessage || '权限不足，无法访问该资源');
           break;
         case 404:
-          ElMessage.error('请求的资源不存在');
+          ElMessage.error(errorMessage || '请求的资源不存在');
           break;
         case 500:
-          ElMessage.error('服务器内部错误');
+          ElMessage.error(errorMessage || '服务器内部错误');
           break;
         default:
-          ElMessage.error(data?.message || '请求失败');
+          ElMessage.error(errorMessage);
       }
     } else if (error.request) {
       ElMessage.error('网络错误，请检查网络连接');

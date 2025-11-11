@@ -53,7 +53,10 @@
 
         <!-- 房源卡片区域 -->
         <div class="house-cards-section">
-          <div class="house-cards-grid">
+          <div v-if="houseList.length === 0" class="empty-state">
+            <el-empty description="暂无房源数据" />
+          </div>
+          <div v-else class="house-cards-grid">
             <div
               v-for="house in houseList"
               :key="house.id"
@@ -95,7 +98,10 @@
 
         <!-- 资讯列表区域 -->
         <div class="info-section" v-loading="infoLoading">
-          <div class="info-list">
+          <div v-if="infoList.length === 0 && !infoLoading" class="empty-state">
+            <el-empty description="暂无资讯数据" />
+          </div>
+          <div v-else class="info-list">
             <div
               v-for="info in displayedInfos"
               :key="info.infoid"
@@ -269,15 +275,32 @@ const getHouseList = async () => {
       size: 1000000
     })
 
-    if (response.success) {
-      houseList.value = response.data.map(item => ({
+    console.log('房源API响应:', response)
+
+    if (response && response.success) {
+      // 后端返回格式：Result.ok(propertiesList)，所以 data 就是列表
+      const data = response.data || []
+      houseList.value = Array.isArray(data) ? data.map(item => ({
         id: item.propertyid,
-        name: item.title,
+        name: item.title || item.name || '未命名房源',
         image: item.image || 'https://www.dmoe.cc/random.php?id=' + Math.random()
-      }))
+      })) : []
+      console.log('解析后的房源列表:', houseList.value)
+    } else {
+      // 如果返回失败，显示错误信息
+      const errorMsg = response?.errorMsg || response?.message || '获取房源数据失败'
+      ElMessage.error(errorMsg)
+      houseList.value = []
     }
   } catch (error) {
     console.error('获取房源数据失败:', error)
+    // 从错误响应中提取错误信息
+    const errorMsg = error.response?.data?.errorMsg || 
+                     error.response?.data?.message || 
+                     error.message || 
+                     '获取房源数据失败，请稍后重试'
+    ElMessage.error(errorMsg)
+    houseList.value = []
   }
 }
 
@@ -287,14 +310,28 @@ const getInfoList = async () => {
     infoLoading.value = true
     const response = await infoApi.getAllInfo()
 
-    if (response.success) {
-      infoList.value = response.data || []
+    console.log('资讯API响应:', response)
+
+    if (response && response.success) {
+      // 后端返回格式：Result.ok(informationList)，所以 data 就是列表
+      const data = response.data || []
+      infoList.value = Array.isArray(data) ? data : []
+      console.log('解析后的资讯列表:', infoList.value)
     } else {
-      ElMessage.error('获取资讯数据失败')
+      // 如果返回失败，显示错误信息
+      const errorMsg = response?.errorMsg || response?.message || '获取资讯数据失败'
+      ElMessage.error(errorMsg)
+      infoList.value = []
     }
   } catch (error) {
     console.error('获取资讯数据失败:', error)
-    ElMessage.error('获取资讯数据失败')
+    // 从错误响应中提取错误信息
+    const errorMsg = error.response?.data?.errorMsg || 
+                     error.response?.data?.message || 
+                     error.message || 
+                     '获取资讯数据失败，请稍后重试'
+    ElMessage.error(errorMsg)
+    infoList.value = []
   } finally {
     infoLoading.value = false
   }
@@ -372,6 +409,7 @@ const formatDate = (dateString) => {
 
 // 组件挂载时加载数据
 onMounted(() => {
+  console.log('house/info 页面已挂载，开始加载数据')
   getHouseList()
   getInfoList()
 })
@@ -379,14 +417,17 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .map-house-container {
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-height: calc(100vh - 60px);
+  overflow: auto;
 
   .main-content {
     display: flex;
-    height: 100%;
+    min-height: calc(100vh - 60px);
     gap: 20px;
     padding: 20px;
-    overflow: hidden;
+    box-sizing: border-box;
   }
 
   // 左侧房源区域
@@ -566,7 +607,23 @@ onMounted(() => {
         text-align: center;
         padding: 20px 0;
       }
+      
+      .empty-state {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 200px;
+        padding: 40px;
+      }
     }
+  }
+  
+  .empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    padding: 40px;
   }
 }
 

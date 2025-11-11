@@ -146,8 +146,11 @@ import { ElMessage } from 'element-plus'
 import { User, Lock, Message, Phone, UserFilled, InfoFilled } from '@element-plus/icons-vue'
 import usersApi from '../../api/users'
 import { USER_ROLES } from '@/utils/userRole'
+import { removeToken } from '@/utils/jwt'
+import useStore from '../../store/index'
 
 const router = useRouter()
+const store = useStore()
 const loading = ref(false)
 const agreeTerms = ref(false)
 
@@ -211,28 +214,27 @@ const onSubmit = async () => {
     if (valid) {
       loading.value = true
       try {
-        // 构造注册数据，按照新接口文档格式
-        // role: 1-买家, 2-卖家
-        let roleNum = 1; // 默认买家
-        if (form.value.role === USER_ROLES.BUYER) {
-          roleNum = 1;
-        } else if (form.value.role === USER_ROLES.SELLER) {
-          roleNum = 2;
-        }
-
+        // 使用后端字段命名：username, password, email, phonenumber
+        // role字段使用后端枚举名称：买家、卖家、经纪人、管理员
         const registerData = {
-          userName: form.value.username,  // 注意：接口要求字段名为 userName
-          phoneNumber: form.value.phonenumber,  // 使用驼峰命名
+          username: form.value.username,
           password: form.value.password,
-          role: roleNum  // 使用数字：1-买家, 2-卖家
+          email: form.value.email,
+          phonenumber: form.value.phonenumber,
+          role: form.value.role || '买家'  // 使用后端枚举名称，默认为买家
         }
 
         console.log('注册数据:', registerData);
         const response = await usersApi.createUser(registerData)
 
         if (response.success === true) {
+          // 注册成功后，清除之前的登录状态和token，确保跳转到登录页
+          removeToken()
+          store.logout()
+          
           ElMessage.success('注册成功！请前往登录')
-          router.push('/login')
+          // 使用 replace 而不是 push，避免用户通过返回按钮回到注册页
+          router.replace('/login')
         } else {
           ElMessage.error('注册失败，请稍后重试')
         }

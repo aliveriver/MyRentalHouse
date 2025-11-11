@@ -5,9 +5,25 @@
       <el-col :span="8">
         <el-card class="profile-card">
           <div class="profile-header">
-            <el-avatar
-              :size="80"
-              src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"
+            <div class="avatar-container" @click="triggerFileInput">
+              <el-avatar
+                :size="80"
+                :src="avatarUrl"
+                class="user-avatar"
+              >
+                <el-icon><User /></el-icon>
+              </el-avatar>
+              <div class="avatar-overlay">
+                <el-icon><Camera /></el-icon>
+                <span>点击上传</span>
+              </div>
+            </div>
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/*"
+              style="display: none"
+              @change="handleAvatarChange"
             />
             <div class="profile-info">
               <h3>{{ userForm.username || '未设置' }}</h3>
@@ -67,10 +83,11 @@
             </el-row>
             <el-row :gutter="20">
               <el-col :span="12">
-                <el-form-item label="手机号" prop="phonenumber">
+                <el-form-item label="手机号">
                   <el-input
                     v-model="userForm.phonenumber"
                     placeholder="请输入手机号"
+                    disabled
                   />
                 </el-form-item>
               </el-col>
@@ -222,15 +239,18 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { usersApi } from '../../api/index'
+import { User, Camera } from '@element-plus/icons-vue'
+import { usersApi, filesApi } from '../../api/index'
 import useStore from "@/store/index"
 import { getRoleDisplayName } from '@/utils/userRole'
 
 const store = useStore()
 const passwordFormRef = ref(null)
 const profileFormRef = ref(null)
+const fileInputRef = ref(null)
 const saving = ref(false)
 const changingPassword = ref(false)
+const uploadingAvatar = ref(false)
 
 // 从store获取用户信息
 const userInfo = computed(() => store.userInfo || {})
@@ -242,7 +262,16 @@ const userForm = reactive({
   phonenumber: '',
   password: '',
   registrationtime: '',
-  role: ''
+  role: '',
+  avatar: ''
+})
+
+// 头像URL计算属性
+const avatarUrl = computed(() => {
+  if (userForm.avatar) {
+    return filesApi.getFileUrl(userForm.avatar)
+  }
+  return null
 })
 
 // 密码修改表单
@@ -258,14 +287,7 @@ const profileRules = {
     { required: true, message: '请输入用户名', trigger: 'blur' },
     { min: 2, max: 50, message: '用户名长度在2到50个字符', trigger: 'blur' }
   ],
-  phonenumber: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    {
-      pattern: /^1[3-9]\d{9}$/,
-      message: '请输入正确的手机号码',
-      trigger: 'blur'
-    }
-  ],
+  // 手机号不允许修改，已移除验证规则
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
     {
@@ -346,6 +368,15 @@ const initFormData = async () => {
       userForm.phonenumber = user.phoneNumber || user.phonenumber || ''
       userForm.registrationtime = user.registrationtime || user.registrationTime || ''
       userForm.role = user.role || ''
+      userForm.avatar = user.avatar || ''
+
+      // 同步更新 store 中的用户信息（包括头像）
+      if (store.userInfo) {
+        store.setUserInfo({
+          ...store.userInfo,
+          avatar: user.avatar || store.userInfo.avatar
+        })
+      }
 
       console.log('用户信息加载成功:', user)
     } else {
@@ -385,7 +416,7 @@ const saveProfile = async () => {
     const updateData = {
       username: userForm.username,
       email: userForm.email,
-      phonenumber: userForm.phonenumber,
+      // 手机号不允许修改，不包含在更新数据中
       password: userForm.password,
       registrationtime: userForm.registrationtime,
       role: userForm.role
@@ -456,7 +487,7 @@ const changePassword = async () => {
     const passwordData = {
       username: userForm.username,
       email: userForm.email,
-      phonenumber: userForm.phonenumber,
+      // 手机号不允许修改，不包含在更新数据中
       password: passwordForm.newPassword, // 使用新密码
       registrationtime: userForm.registrationtime,
       role: userForm.role
@@ -497,6 +528,71 @@ const resetPasswordForm = () => {
   passwordFormRef.value?.clearValidate()
 }
 
+// 触发文件选择
+const triggerFileInput = () => {
+  fileInputRef.value?.click()
+}
+
+// 处理头像文件选择
+const handleAvatarChange = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) {
+    return
+  }
+
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    ElMessage.error('请选择图片文件')
+    return
+  }
+
+  // 验证文件大小（5MB）
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.error('图片大小不能超过5MB')
+    return
+  }
+
+  try {
+    uploadingAvatar.value = true
+
+    // 上传文件
+    const uploadResponse = await filesApi.uploadFile(file)
+    
+    if (uploadResponse.success && uploadResponse.data?.uri) {
+      const avatarUri = uploadResponse.data.uri
+      
+      // 更新用户头像
+      const updateResponse = await usersApi.updateAvatar(avatarUri)
+      
+      if (updateResponse.success) {
+        // 更新本地表单数据
+        userForm.avatar = avatarUri
+        
+        // 更新store中的用户信息
+        store.setUserInfo({
+          ...userInfo.value,
+          avatar: avatarUri
+        })
+        
+        ElMessage.success('头像上传成功')
+      } else {
+        ElMessage.error(updateResponse.errorMsg || '更新头像失败')
+      }
+    } else {
+      ElMessage.error(uploadResponse.errorMsg || '文件上传失败')
+    }
+  } catch (error) {
+    console.error('上传头像失败:', error)
+    ElMessage.error('上传头像失败，请稍后再试')
+  } finally {
+    uploadingAvatar.value = false
+    // 清空文件输入，以便可以重复选择同一文件
+    if (fileInputRef.value) {
+      fileInputRef.value.value = ''
+    }
+  }
+}
+
 // 组件挂载时初始化数据
 onMounted(() => {
   if (!store.isLogin) {
@@ -517,8 +613,52 @@ onMounted(() => {
       align-items: center;
       margin-bottom: 30px;
 
+      .avatar-container {
+        position: relative;
+        cursor: pointer;
+        margin-right: 20px;
+
+        .user-avatar {
+          border: 2px solid #e0e0e0;
+          transition: all 0.3s;
+        }
+
+        .avatar-overlay {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          background-color: rgba(0, 0, 0, 0.5);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          transition: opacity 0.3s;
+          color: white;
+          font-size: 12px;
+
+          .el-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+          }
+        }
+
+        &:hover {
+          .avatar-overlay {
+            opacity: 1;
+          }
+
+          .user-avatar {
+            border-color: #409eff;
+          }
+        }
+      }
+
       .profile-info {
-        margin-left: 20px;
+        margin-left: 0;
 
         h3 {
           margin: 0 0 8px 0;
