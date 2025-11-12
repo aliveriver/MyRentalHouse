@@ -93,4 +93,61 @@ export const contractsApi = {
       method: 'get',
     });
   },
+
+  /**
+   * 买家提出合同签订申请
+   * @param {Object} requestData - 申请数据
+   * @param {number} requestData.propertyId - 房源ID
+   * @param {string} requestData.contractFileUri - 合同文件URI
+   * @returns {Promise} 响应数据
+   */
+  applyContract: (requestData) => {
+    return request({
+      url: '/contracts/apply',
+      method: 'post',
+      data: requestData,
+    });
+  },
+
+  /**
+   * 卖家查看待审核的合同列表
+   * @returns {Promise} 响应数据
+   */
+  getPendingContractsBySeller: () => {
+    return request({
+      url: '/contracts/seller/pending',
+      method: 'get',
+    });
+  },
+
+  /**
+   * 卖家签订合同
+   * @param {number} contractId - 合同ID
+   * @returns {Promise} 响应数据
+   */
+  signContract: (contractId) => {
+    return request({
+      url: `/contracts/${contractId}/sign`,
+      method: 'post',
+    });
+  },
+
+  /**
+   * 上传合同文件
+   * @param {File} file - 合同文件
+   * @returns {Promise} 响应数据
+   */
+  uploadContractFile: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return request({
+      url: '/files/upload/contract',
+      method: 'post',
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 };

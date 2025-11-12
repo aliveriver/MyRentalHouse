@@ -9,6 +9,7 @@
             clearable
             style="width: 200px"
           >
+            <el-option label="待审核" value="待审核" />
             <el-option label="已签订" value="已签订" />
             <el-option label="已取消" value="已取消" />
           </el-select>
@@ -62,7 +63,11 @@
           stripe
           height="600"
         >
-          <el-table-column type="selection" width="55" />
+          <el-table-column 
+            type="selection" 
+            width="55"
+            :selectable="(row) => row.contractstatus !== '已签订'"
+          />
           <el-table-column prop="contractid" label="合同ID" width="100" />
 
           <el-table-column label="房源信息" min-width="200">
@@ -126,6 +131,7 @@
                   type="warning"
                   size="small"
                   @click="editContract(scope.row)"
+                  :disabled="scope.row.contractstatus === '已签订'"
                 >
                   <el-icon><Edit /></el-icon>
                   编辑
@@ -135,6 +141,7 @@
                   size="small"
                   @click="deleteContract(scope.row)"
                   :loading="scope.row.deleting"
+                  :disabled="scope.row.contractstatus === '已签订'"
                 >
                   <el-icon><Delete /></el-icon>
                   删除
@@ -167,51 +174,140 @@
     <el-dialog
       v-model="contractDetailVisible"
       title="合同详情"
-      width="60%"
-      max-width="800px"
+      width="80%"
+      max-width="1200px"
       draggable
     >
       <div v-if="currentContract" class="contract-detail">
-        <el-descriptions border :column="2">
-          <el-descriptions-item label="合同ID">
-            {{ currentContract.contractid }}
-          </el-descriptions-item>
-          <el-descriptions-item label="合同状态">
-            <el-tag :type="getStatusTagType(currentContract.contractstatus)">
-              {{ currentContract.contractstatus }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="房源ID">
-            {{ currentContract.propertyid }}
-          </el-descriptions-item>
-          <el-descriptions-item label="房源标题">
-            {{ currentContract.houseTitle || '未知房源' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="房源地址" span="2">
-            {{ currentContract.houseAddress || '地址未知' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="房源价格">
-            ¥{{ currentContract.housePrice || 0 }}元
-          </el-descriptions-item>
-          <el-descriptions-item label="买家ID">
-            {{ currentContract.buyerid }}
-          </el-descriptions-item>
-          <el-descriptions-item label="买家姓名">
-            {{ currentContract.buyerName || '未知买家' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="买家联系方式">
-            {{ currentContract.buyerPhone || '无联系方式' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="签订日期">
-            {{ formatDate(currentContract.signingdate) }}
-          </el-descriptions-item>
-          <el-descriptions-item label=" "> </el-descriptions-item>
-        </el-descriptions>
+        <!-- 合同基本信息 -->
+        <el-card shadow="never" class="contract-info-card">
+          <template #header>
+            <div class="card-header">
+              <span>合同基本信息</span>
+            </div>
+          </template>
+          <el-descriptions border :column="2">
+            <el-descriptions-item label="合同ID">
+              {{ currentContract.contractid }}
+            </el-descriptions-item>
+            <el-descriptions-item label="合同状态">
+              <el-tag :type="getStatusTagType(currentContract.contractstatus)">
+                {{ currentContract.contractstatus }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="房源ID">
+              {{ currentContract.propertyid }}
+            </el-descriptions-item>
+            <el-descriptions-item label="房源标题">
+              {{ currentContract.houseTitle || '未知房源' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="房源地址" span="2">
+              {{ currentContract.houseAddress || '地址未知' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="房源价格">
+              ¥{{ currentContract.housePrice || 0 }}元
+            </el-descriptions-item>
+            <el-descriptions-item label="买家ID">
+              {{ currentContract.buyerid }}
+            </el-descriptions-item>
+            <el-descriptions-item label="买家姓名">
+              {{ currentContract.buyerName || '未知买家' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="买家联系方式">
+              {{ currentContract.buyerPhone || '无联系方式' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="签订日期">
+              {{ formatDate(currentContract.signingdate) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="合同文件" span="2">
+              <el-button
+                v-if="currentContract.contractfile"
+                type="primary"
+                size="small"
+                :icon="Download"
+                @click="downloadContractFile(currentContract.contractfile)"
+              >
+                下载合同文件
+              </el-button>
+              <span v-else class="no-file-text">暂无合同文件</span>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-card>
+
+        <!-- 合同模板预览 -->
+        <el-card
+          v-if="currentContract.contractfile"
+          shadow="never"
+          class="contract-template-card"
+        >
+          <template #header>
+            <div class="card-header">
+              <span>合同模板预览</span>
+              <div class="header-actions">
+                <el-button
+                  text
+                  :icon="Download"
+                  @click="downloadContractFile(currentContract.contractfile)"
+                >
+                  下载
+                </el-button>
+              </div>
+            </div>
+          </template>
+          <div class="contract-template-viewer" v-loading="contractFileLoading">
+            <!-- PDF预览 -->
+            <iframe
+              v-if="isPdfFile(currentContract.contractfile)"
+              :src="getContractFileUrl(currentContract.contractfile)"
+              class="contract-iframe"
+              frameborder="0"
+            />
+            <!-- 文本文件预览 -->
+            <div
+              v-else-if="isTextFile(currentContract.contractfile)"
+              class="contract-text-viewer"
+            >
+              <pre v-if="contractFileContent" class="contract-text-content">{{
+                contractFileContent
+              }}</pre>
+              <div v-else class="text-loading">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                加载中...
+              </div>
+            </div>
+            <!-- 其他格式文件（DOC等） -->
+            <div v-else class="contract-other-file">
+              <el-empty description="该文件格式不支持在线预览">
+                <template #image>
+                  <el-icon :size="100" color="#c0c4cc"><Document /></el-icon>
+                </template>
+                <el-button
+                  type="primary"
+                  :icon="Download"
+                  @click="downloadContractFile(currentContract.contractfile)"
+                >
+                  下载文件查看
+                </el-button>
+              </el-empty>
+            </div>
+          </div>
+        </el-card>
+        <el-card
+          v-else
+          shadow="never"
+          class="contract-template-card"
+        >
+          <el-empty description="暂无合同模板文件" />
+        </el-card>
       </div>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="contractDetailVisible = false">关闭</el-button>
-          <el-button type="warning" @click="editContract(currentContract)">
+          <el-button
+            v-if="currentContract && currentContract.contractstatus !== '已签订'"
+            type="warning"
+            @click="editContract(currentContract)"
+          >
             编辑合同
           </el-button>
         </div>
@@ -256,6 +352,7 @@
             placeholder="请选择合同状态"
             style="width: 100%"
           >
+            <el-option label="待审核" value="待审核" />
             <el-option label="已签订" value="已签订" />
             <el-option label="已取消" value="已取消" />
           </el-select>
@@ -274,12 +371,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Refresh, Search, RefreshLeft, Delete, View, Edit
+  Refresh, Search, RefreshLeft, Delete, View, Edit, Download, Document, Loading
 } from '@element-plus/icons-vue'
 import { contractsApi, propertiesApi, usersApi } from '../../api/index'
+import filesApi from '../../api/files'
 
 const loading = ref(false)
 const updating = ref(false)
@@ -289,6 +387,8 @@ const contractDetailVisible = ref(false)
 const editContractVisible = ref(false)
 const currentContract = ref(null)
 const editFormRef = ref(null)
+const contractFileLoading = ref(false)
+const contractFileContent = ref('')
 
 // 搜索表单
 const searchForm = reactive({
@@ -433,6 +533,82 @@ const handleSizeChange = (size) => {
 const viewContract = (contract) => {
   currentContract.value = contract
   contractDetailVisible.value = true
+  // 如果合同有文件，加载文件内容（文本文件）
+  if (contract.contractfile && isTextFile(contract.contractfile)) {
+    loadContractFileContent(contract.contractfile)
+  } else {
+    contractFileContent.value = ''
+  }
+}
+
+// 监听合同详情对话框关闭，清理文件内容
+watch(contractDetailVisible, (visible) => {
+  if (!visible) {
+    contractFileContent.value = ''
+  }
+})
+
+// 获取合同文件URL
+const getContractFileUrl = (contractFileUri) => {
+  if (!contractFileUri) return ''
+  return filesApi.getFileUrl(contractFileUri)
+}
+
+// 判断是否为PDF文件
+const isPdfFile = (filename) => {
+  if (!filename) return false
+  const lowerFilename = filename.toLowerCase()
+  return lowerFilename.endsWith('.pdf')
+}
+
+// 判断是否为文本文件
+const isTextFile = (filename) => {
+  if (!filename) return false
+  const lowerFilename = filename.toLowerCase()
+  return lowerFilename.endsWith('.txt')
+}
+
+// 加载合同文件内容（文本文件）
+const loadContractFileContent = async (contractFileUri) => {
+  if (!contractFileUri) return
+  contractFileLoading.value = true
+  try {
+    const fileUrl = getContractFileUrl(contractFileUri)
+    const response = await fetch(fileUrl)
+    if (response.ok) {
+      const text = await response.text()
+      contractFileContent.value = text
+    } else {
+      ElMessage.error('加载合同文件失败')
+    }
+  } catch (error) {
+    console.error('加载合同文件内容失败:', error)
+    ElMessage.error('加载合同文件失败')
+  } finally {
+    contractFileLoading.value = false
+  }
+}
+
+// 下载合同文件
+const downloadContractFile = async (contractFileUri) => {
+  if (!contractFileUri) {
+    ElMessage.warning('合同文件不存在')
+    return
+  }
+  try {
+    const fileUrl = getContractFileUrl(contractFileUri)
+    // 创建临时链接并下载
+    const link = document.createElement('a')
+    link.href = fileUrl
+    link.download = contractFileUri.split('/').pop() || 'contract.pdf'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    ElMessage.success('开始下载合同文件')
+  } catch (error) {
+    console.error('下载合同文件失败:', error)
+    ElMessage.error('下载合同文件失败')
+  }
 }
 
 // 编辑合同
@@ -535,9 +711,24 @@ const handleBatchDelete = async () => {
     return
   }
 
+  // 过滤掉已签订的合同
+  const deletableContracts = selectedContracts.value.filter(
+    contract => contract.contractstatus !== '已签订'
+  )
+
+  if (deletableContracts.length === 0) {
+    ElMessage.warning('选中的合同均为已签订状态，不能删除')
+    return
+  }
+
+  if (deletableContracts.length < selectedContracts.value.length) {
+    const signedCount = selectedContracts.value.length - deletableContracts.length
+    ElMessage.warning(`已自动排除 ${signedCount} 个已签订的合同`)
+  }
+
   try {
     await ElMessageBox.confirm(
-      `确认要删除选中的 ${selectedContracts.value.length} 个合同吗？此操作不可恢复。`,
+      `确认要删除选中的 ${deletableContracts.length} 个合同吗？此操作不可恢复。`,
       '批量删除确认',
       {
         confirmButtonText: '确认删除',
@@ -546,7 +737,7 @@ const handleBatchDelete = async () => {
       }
     )
 
-    const deletePromises = selectedContracts.value.map(contract =>
+    const deletePromises = deletableContracts.map(contract =>
       contractsApi.deleteContract(contract.contractid)
     )
 
@@ -606,6 +797,8 @@ const getStatusTagType = (status) => {
   switch (status) {
     case '已签订':
       return 'success'
+    case '待审核':
+      return 'warning'
     case '待签订':
       return 'warning'
     case '已取消':
@@ -722,8 +915,79 @@ const getStatusTagType = (status) => {
   }
 
   .contract-detail {
-    .el-descriptions {
-      margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    .contract-info-card {
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+    }
+
+    .contract-template-card {
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        .header-actions {
+          display: flex;
+          gap: 10px;
+        }
+      }
+
+      .contract-template-viewer {
+        min-height: 600px;
+        max-height: 80vh;
+        overflow: auto;
+
+        .contract-iframe {
+          width: 100%;
+          min-height: 600px;
+          height: 80vh;
+          border: 1px solid #e4e7ed;
+          border-radius: 4px;
+        }
+
+        .contract-text-viewer {
+          .contract-text-content {
+            padding: 20px;
+            background: #f5f7fa;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #303133;
+            max-height: 80vh;
+            overflow: auto;
+          }
+
+          .text-loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+            color: #909399;
+          }
+        }
+
+        .contract-other-file {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 400px;
+        }
+      }
+    }
+
+    .no-file-text {
+      color: #909399;
+      font-size: 14px;
     }
   }
 

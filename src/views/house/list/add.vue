@@ -17,7 +17,7 @@
               <el-input
                 v-model="form.title"
                 placeholder="输入标题"
-                :readonly="isView"
+                :readonly="isFormFieldDisabled"
               />
             </el-form-item>
           </el-col>
@@ -27,12 +27,123 @@
                 v-model="form.layout"
                 placeholder="请选择户型"
                 style="width: 100%"
-                :disabled="isView"
+                :disabled="isFormFieldDisabled"
               >
                 <el-option
                   :label="item.value"
                   :value="item.value"
                   v-for="item in tags.houseTags"
+                  :key="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="房屋朝向" prop="orientation">
+              <el-select
+                v-model="form.orientation"
+                placeholder="请选择房屋朝向"
+                style="width: 100%"
+                :disabled="isFormFieldDisabled"
+              >
+                <el-option
+                  :label="item.value"
+                  :value="item.value"
+                  v-for="item in tags.orientationTags"
+                  :key="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="所在楼层" prop="floor">
+              <el-select
+                v-model="form.floor"
+                placeholder="请选择所在楼层"
+                style="width: 100%"
+                :disabled="isFormFieldDisabled"
+              >
+                <el-option
+                  :label="item.value"
+                  :value="item.value"
+                  v-for="item in tags.floorTags"
+                  :key="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="装修情况" prop="decoration">
+              <el-select
+                v-model="form.decoration"
+                placeholder="请选择装修情况"
+                style="width: 100%"
+                :disabled="isFormFieldDisabled"
+              >
+                <el-option
+                  :label="item.value"
+                  :value="item.value"
+                  v-for="item in tags.afitmentTags"
+                  :key="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="建筑类型" prop="buildingType">
+              <el-select
+                v-model="form.buildingType"
+                placeholder="请选择建筑类型"
+                style="width: 100%"
+                :disabled="isFormFieldDisabled"
+              >
+                <el-option
+                  :label="item.value"
+                  :value="item.value"
+                  v-for="item in tags.typeTags"
+                  :key="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="建筑年代" prop="buildYear">
+              <el-select
+                v-model="form.buildYear"
+                placeholder="请选择建筑年代"
+                style="width: 100%"
+                :disabled="isFormFieldDisabled"
+              >
+                <el-option
+                  :label="item.value"
+                  :value="item.value"
+                  v-for="item in tags.buildYearTags"
+                  :key="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="梯户比例" prop="elevatorRatio">
+              <el-select
+                v-model="form.elevatorRatio"
+                placeholder="请选择梯户比例"
+                style="width: 100%"
+                :disabled="isFormFieldDisabled"
+              >
+                <el-option
+                  :label="item.value"
+                  :value="item.value"
+                  v-for="item in tags.elevatorRatioTags"
                   :key="item.id"
                 />
               </el-select>
@@ -46,7 +157,7 @@
               <el-input
                 v-model="form.address"
                 placeholder="请输入房源地址"
-                :readonly="isView"
+                :readonly="isFormFieldDisabled"
               />
             </el-form-item>
           </el-col>
@@ -59,15 +170,23 @@
                 v-model="form.status"
                 placeholder="请选择状态"
                 style="width: 100%"
-                :disabled="isView"
+                :disabled="isView || (isSeller && form.status === '待审核')"
               >
                 <el-option
                   :label="item.value"
                   :value="item.value"
-                  v-for="item in tags.statusTags"
+                  v-for="item in availableStatusTags"
                   :key="item.id"
                 />
               </el-select>
+              <el-alert
+                v-if="isSeller && form.status === '待审核'"
+                type="warning"
+                :closable="false"
+                style="margin-top: 8px"
+              >
+                待审核状态的房源不能修改，只能下架
+              </el-alert>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -76,7 +195,7 @@
                 v-model="form.tagIds"
                 placeholder="请选择标签"
                 style="width: 100%"
-                :disabled="isView"
+                :disabled="isFormFieldDisabled"
                 multiple
               >
                 <el-option
@@ -96,7 +215,7 @@
               <el-input
                 v-model="form.area"
                 placeholder="房源大小(m²)"
-                :readonly="isView"
+                :readonly="isFormFieldDisabled"
               />
             </el-form-item>
           </el-col>
@@ -105,7 +224,7 @@
               <el-input
                 v-model="form.price"
                 placeholder="请输入房源价格(元)"
-                :readonly="isView"
+                :readonly="isFormFieldDisabled"
               />
             </el-form-item>
           </el-col>
@@ -118,7 +237,7 @@
                 v-model="form.description"
                 placeholder="最少输入10个字符"
                 :rows="4"
-                :readonly="isView"
+                :readonly="isFormFieldDisabled"
               />
             </el-form-item>
           </el-col>
@@ -126,31 +245,52 @@
         <el-row>
           <el-col :span="24">
             <el-form-item
-              label="图片上传"
+              :label="isView ? '房源图片' : '图片上传'"
               prop="images"
-              v-if="!isView || form.images.length > 0"
             >
               <div class="upload-section">
                 <div class="uploaded-images" v-if="form.images.length > 0">
                   <div
                     v-for="(image, index) in form.images"
-                    :key="index"
+                    :key="image.id || index"
                     class="image-item"
+                    :class="{ 'view-mode': isView }"
                   >
-                    <img :src="image.url" :alt="image.name" />
-                    <div class="image-actions" v-if="!isView">
+                    <el-image
+                      v-if="isView"
+                      :src="image.url"
+                      :alt="image.name"
+                      :preview-src-list="form.images.map(img => img.url)"
+                      :initial-index="index"
+                      fit="cover"
+                      class="view-image"
+                      preview-teleported
+                    />
+                    <img
+                      v-else
+                      :src="image.url"
+                      :alt="image.name"
+                    />
+                    <div class="image-actions" v-if="!isView && !isFormFieldDisabled">
                       <el-button
                         type="danger"
                         size="small"
                         circle
                         @click="removeImage(index)"
+                        :disabled="image.uploading"
                       >
                         <el-icon><Close /></el-icon>
                       </el-button>
                     </div>
+                    <div v-if="image.uploading" class="uploading-overlay">
+                      <el-icon class="is-loading"><Loading /></el-icon>
+                    </div>
                   </div>
                 </div>
-                <div class="upload-trigger" v-if="!isView">
+                <div v-if="isView && form.images.length === 0" class="no-images-tip">
+                  <el-empty description="暂无图片" :image-size="80" />
+                </div>
+                <div class="upload-trigger" v-if="!isView && !isFormFieldDisabled">
                   <el-upload
                     :show-file-list="false"
                     :before-upload="beforeUpload"
@@ -179,15 +319,16 @@
         <el-button @click="handleBack">返回</el-button>
       </div>
     </div>
+
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus, Close } from '@element-plus/icons-vue'
-import { propertiesApi } from '@/api/index'
+import { Plus, Close, Loading } from '@element-plus/icons-vue'
+import { propertiesApi, filesApi } from '@/api/index'
 import useStore from '@/store/index'
 import * as tags from "@/constant/tags"
 
@@ -200,6 +341,36 @@ const isEdit = ref(false)
 const isView = ref(false)
 const loading = ref(false)
 
+// 检查用户角色
+const isAdmin = computed(() => {
+  const role = store.getUserRole
+  return role === '管理员'
+})
+
+const isSeller = computed(() => {
+  const role = store.getUserRole
+  return role === '卖家'
+})
+
+// 根据用户角色过滤可用的状态选项
+const availableStatusTags = computed(() => {
+  if (isAdmin.value) {
+    // 管理员可以看到所有状态
+    return tags.statusTags
+  } else if (isSeller.value) {
+    // 卖家只能选择"下架"（不能选择其他状态）
+    return tags.statusTags.filter(item => item.value === '下架')
+  } else {
+    // 其他角色（买家等）不应该编辑房源，但为了安全起见，只显示在售
+    return tags.statusTags.filter(item => item.value === '在售')
+  }
+})
+
+// 判断是否应该禁用表单字段（待审核状态的房源，卖家不能编辑除状态外的其他字段）
+const isFormFieldDisabled = computed(() => {
+  return isView.value || (isSeller.value && isEdit.value && form.value.status === '待审核')
+})
+
 // 表单引用
 const formRef = ref(null)
 
@@ -211,8 +382,14 @@ const form = ref({
   price: 0,                     // 价格（使用displayPrice）
   area: 0,                      // 面积（从houseSize转换）
   layout: '',                   // 户型（从houseType转换）
+  orientation: '',              // 房屋朝向
+  floor: '',                    // 所在楼层
+  decoration: '',               // 装修情况
+  buildingType: '',             // 建筑类型
+  buildYear: '',                // 建筑年代
+  elevatorRatio: '',            // 梯户比例
   address: '',                  // 房源地址（对应原来的location）
-  status: '在售',               // 状态，默认在售
+  status: '待审核',             // 状态，新建房源默认待审核
   tagIds: [],
   images: [],                  // 图片
 })
@@ -267,9 +444,16 @@ const initEmptyForm = () => {
     price: 0,
     area: 0,
     layout: '',
+    orientation: '',
+    floor: '',
+    decoration: '',
+    buildingType: '',
+    buildYear: '',
+    elevatorRatio: '',
     address: '',
-    status: '在售',
+    status: '待审核', // 新建房源默认状态为"待审核"
     images: [],
+    tagIds: [],
   }
 }
 
@@ -282,7 +466,27 @@ const loadHouseData = async (id) => {
     if (response && response.success) {
       const propertyData = response.data
 
+      // 检查卖家是否尝试编辑待审核状态的房源
+      if (isEdit.value && isSeller.value && propertyData.status === '待审核') {
+        ElMessage.warning('待审核状态的房源不能编辑')
+        // 跳转回列表页
+        router.push('/house/list')
+        return
+      }
+
       // 将API数据映射到表单
+      // 处理图片列表
+      let images = []
+      if (propertyData.photoList && propertyData.photoList.length > 0) {
+        images = propertyData.photoList.map((uri, index) => ({
+          id: 'loaded_' + index + '_' + Date.now(), // 为已加载的图片添加id
+          url: filesApi.getFileUrl(uri),
+          name: '房源图片',
+          uri: uri,
+          uploading: false // 已加载的图片不需要显示加载状态
+        }))
+      }
+
       form.value = {
         // API字段
         title: propertyData.title,
@@ -290,15 +494,18 @@ const loadHouseData = async (id) => {
         price: propertyData.price,
         area: propertyData.area,
         layout: propertyData.layout,
+        orientation: propertyData.orientation || '',
+        floor: propertyData.floor || '',
+        decoration: propertyData.decoration || '',
+        buildingType: propertyData.buildingType || '',
+        buildYear: propertyData.buildYear || '',
+        elevatorRatio: propertyData.elevatorRatio || '',
         address: propertyData.address,
         status: propertyData.status,
         // 界面字段（模拟数据或从API字段转换）
         houseNumber: id,
         tagIds: propertyData.tagIds || [],
-        images: [
-          { url: 'https://via.placeholder.com/150x100?text=房源图片1', name: '房源图片1' },
-          { url: 'https://via.placeholder.com/150x100?text=房源图片2', name: '房源图片2' }
-        ],
+        images: images,
       }
     } else {
       ElMessage.error('获取房源信息失败')
@@ -312,7 +519,7 @@ const loadHouseData = async (id) => {
 }
 
 // 图片上传前的处理
-const beforeUpload = (file) => {
+const beforeUpload = async (file) => {
   const isImage = file.type.startsWith('image/')
   const isLt2M = file.size / 1024 / 1024 < 2
 
@@ -325,14 +532,56 @@ const beforeUpload = (file) => {
     return false
   }
 
+  // 创建唯一标识符
+  const fileId = Date.now() + '_' + Math.random().toString(36).substr(2, 9)
+
   // 创建预览URL
   const reader = new FileReader()
-  reader.onload = (e) => {
-    form.value.images.push({
-      url: e.target.result,
-      name: file.name,
-      file: file
-    })
+  reader.onload = async (e) => {
+    try {
+      // 先显示预览
+      const previewUrl = e.target.result
+      const imageItem = {
+        id: fileId, // 唯一标识符
+        url: previewUrl,
+        name: file.name,
+        file: file,
+        uri: null, // 上传后会有URI
+        uploading: true
+      }
+      form.value.images.push(imageItem)
+
+      // 上传文件获取URI
+      const uploadResponse = await filesApi.uploadFile(file)
+      if (uploadResponse && uploadResponse.success) {
+        // 通过id查找并更新数组项，确保Vue能够检测到变化
+        const index = form.value.images.findIndex(img => img.id === fileId)
+        if (index > -1) {
+          // 使用对象展开运算符创建新对象，触发响应式更新
+          form.value.images[index] = {
+            ...form.value.images[index],
+            uri: uploadResponse.data.uri,
+            uploading: false,
+            url: filesApi.getFileUrl(uploadResponse.data.uri)
+          }
+        }
+      } else {
+        // 上传失败，移除该项
+        const index = form.value.images.findIndex(img => img.id === fileId)
+        if (index > -1) {
+          form.value.images.splice(index, 1)
+        }
+        ElMessage.error(uploadResponse?.errorMsg || '图片上传失败')
+      }
+    } catch (error) {
+      console.error('图片上传失败:', error)
+      ElMessage.error('图片上传失败，请重试')
+      // 移除预览项
+      const index = form.value.images.findIndex(img => img.id === fileId)
+      if (index > -1) {
+        form.value.images.splice(index, 1)
+      }
+    }
   }
   reader.readAsDataURL(file)
 
@@ -383,25 +632,67 @@ const handlePublish = async () => {
 }
 
 const prepareApiData = () => {
-  const price = parseFloat(form.value.price) || 0
-  const area = parseFloat(form.value.area) || 0
+  // 处理价格：移除可能的单位符号，确保是有效数字
+  let priceValue = form.value.price
+  if (typeof priceValue === 'string') {
+    priceValue = priceValue.replace(/[^\d.]/g, '') // 只保留数字和小数点
+  }
+  const price = parseFloat(priceValue) || 0
+  
+  // 处理面积：移除可能的单位符号（如㎡），确保是有效数字
+  let areaValue = form.value.area
+  if (typeof areaValue === 'string') {
+    areaValue = areaValue.replace(/[^\d.]/g, '') // 只保留数字和小数点
+  }
+  let area = parseFloat(areaValue) || 0
+  
+  // 验证面积值是否有效（不能是 NaN 或 Infinity，且应该在合理范围内）
+  if (isNaN(area) || !isFinite(area) || area < 0) {
+    area = 0
+  }
+  // 限制面积最大值（数据库 Area 字段为 DECIMAL(5,2)，最大值为 999.99 平方米）
+  if (area > 999.99) {
+    area = 999.99
+    ElMessage.warning('面积值超过最大限制，已自动调整为 999.99 平方米')
+  }
+  
   const layout = form.value.layout || '住宅'
   const address = form.value.address
   const description = form.value.description
 
-  const tagIds = form.value.tagIds
-  return {
+  // 处理标签ID列表，确保不为 null
+  const tagIds = form.value.tagIds || []
+  
+  // 提取图片URI列表（只包含已上传成功的图片）
+  const photoList = form.value.images
+    .filter(img => img.uri) // 只包含已上传成功的图片
+    .map(img => img.uri)
+
+  const apiData = {
     title: form.value.title,
     description: description,
     price: price,
     area: area,
     layout: layout,
+    orientation: form.value.orientation || '',
+    floor: form.value.floor || '',
+    decoration: form.value.decoration || '',
+    buildingType: form.value.buildingType || '',
+    buildYear: form.value.buildYear || '',
+    elevatorRatio: form.value.elevatorRatio || '',
     address: address,
     publishdate: new Date().toISOString().split('T')[0], // 当前日期 YYYY-MM-DD
-    status: form.value.status || '在售',
+    status: form.value.status || '待审核', // 新建房源默认状态为"待审核"
     sellerid: store.getUserInfo?.userid || 1, // 从store获取当前用户ID
-    tagIds: tagIds
+    photoList: photoList // 图片URI列表
   }
+  
+  // 只有当 tagIds 不为空时才添加到请求数据中
+  if (tagIds.length > 0) {
+    apiData.tagIds = tagIds
+  }
+
+  return apiData
 }
 
 // 取消
@@ -454,11 +745,29 @@ const handleBack = () => {
           border: 1px solid #dcdfe6;
           border-radius: 4px;
           overflow: hidden;
+          transition: all 0.3s;
+
+          &.view-mode {
+            width: 180px;
+            height: 120px;
+            cursor: pointer;
+
+            &:hover {
+              transform: scale(1.05);
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+          }
 
           img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+          }
+
+          .view-image {
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
           }
 
           .image-actions {
@@ -467,12 +776,36 @@ const handleBack = () => {
             right: 5px;
             opacity: 0;
             transition: opacity 0.3s;
+            z-index: 2;
           }
 
           &:hover .image-actions {
             opacity: 1;
           }
+
+          .uploading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1;
+
+            .el-icon {
+              font-size: 24px;
+              color: #fff;
+            }
+          }
         }
+      }
+
+      .no-images-tip {
+        padding: 20px;
+        text-align: center;
       }
 
       .upload-trigger {

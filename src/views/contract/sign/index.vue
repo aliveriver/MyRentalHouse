@@ -1,7 +1,7 @@
 <template>
   <div class="contract-sign-page">
     <div class="page-header">
-      <p>签署购房合同</p>
+      <p>申请签署购房合同</p>
     </div>
 
     <div class="contract-content" v-loading="loading">
@@ -43,7 +43,7 @@
       <el-card class="contract-form-card" shadow="hover">
         <template #header>
           <div class="card-header">
-            <span>签署购房合同</span>
+            <span>申请签署购房合同</span>
           </div>
         </template>
 
@@ -66,27 +66,24 @@
             <el-input v-model="contractForm.buyerid" disabled />
           </el-form-item>
 
-          <el-form-item label="签约日期" prop="signingdate">
-            <el-date-picker
-              v-model="contractForm.signingdate"
-              type="date"
-              placeholder="选择签约日期"
-              value-format="YYYY-MM-DD"
-              :disabled-date="disabledDate"
-              style="width: 100%"
-            />
-          </el-form-item>
 
-          <el-form-item label="合同状态" prop="contractstatus">
-            <el-select
-              v-model="contractForm.contractstatus"
-              placeholder="请选择合同状态"
-              style="width: 100%"
+          <el-form-item label="合同文件" prop="contractFile">
+            <el-upload
+              ref="uploadRef"
+              :auto-upload="false"
+              :on-change="handleContractFileChange"
+              :on-remove="handleContractFileRemove"
+              :limit="1"
+              accept=".pdf,.doc,.docx,.txt"
+              :file-list="contractFileList"
             >
-              <el-option label="已签订" value="已签订" />
-              <el-option label="待签订" value="待签订" />
-              <el-option label="已完成" value="已完成" />
-            </el-select>
+              <el-button type="primary">选择合同文件</el-button>
+              <template #tip>
+                <div class="el-upload__tip">
+                  请上传PDF、Word或TXT格式的合同文件，文件大小不超过10MB
+                </div>
+              </template>
+            </el-upload>
           </el-form-item>
 
           <el-form-item>
@@ -98,7 +95,7 @@
                 :loading="submitting"
                 size="large"
               >
-                确认签署合同
+                提交申请
               </el-button>
             </div>
           </el-form-item>
@@ -121,11 +118,11 @@
           >
             <template #default>
               <ul class="terms-list">
-                <li>请仔细核对房源信息和合同价格，确保无误后再签署</li>
-                <li>签约时间不能早于当前时间</li>
-                <li>合同一经签署即具法律效力，请谨慎操作</li>
+                <li>请仔细核对房源信息和合同价格，确保无误后再提交申请</li>
+                <li>请上传PDF、Word或TXT格式的合同文件，文件大小不超过10MB</li>
+                <li>提交申请后，请等待卖家审核，审核通过后合同即生效</li>
                 <li>如有疑问，请联系客服或法务部门</li>
-                <li>签署前请确保您已充分了解房源状况和相关法律风险</li>
+                <li>提交前请确保您已充分了解房源状况和相关法律风险</li>
               </ul>
             </template>
           </el-alert>
@@ -150,7 +147,10 @@ const store = useStore()
 const loading = ref(false)
 const submitting = ref(false)
 const contractFormRef = ref(null)
+const uploadRef = ref(null)
 const houseInfo = ref(null)
+const contractFileList = ref([])
+const selectedContractFile = ref(null)
 
 // 默认房源图片
 const defaultHouseImage = 'https://img.zx123.cn/Resources/zx123cn/uploadfile/2020/0507/6bf211145acaf9038e4278f6de6a50eb.jpg'
@@ -161,20 +161,25 @@ const contractForm = reactive({
   propertyTitle: '',
   buyerid: '',
   signingdate: '',
-  contractstatus: '已签订'
+  contractFile: null
 })
 
 // 表单验证规则
 const contractRules = {
-  signingdate: [
-    { required: true, message: '请选择签约时间', trigger: 'change' }
+  contractFile: [
+    {
+      validator: (rule, value, callback) => {
+        if (!selectedContractFile.value) {
+          callback(new Error('请上传合同文件'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'change'
+    }
   ]
 }
 
-// 禁用过去的日期
-const disabledDate = (time) => {
-  return time.getTime() < Date.now() - 8.64e7 // 禁用昨天之前的日期
-}
 
 // 获取路由参数
 const propertyId = computed(() => route.params.propertyId || route.query.propertyId)
@@ -201,6 +206,11 @@ const initializeForm = () => {
   // 设置默认签约时间为当前时间
   const now = new Date()
   contractForm.signingdate = now.toISOString().slice(0, 10) // 只取日期部分
+  
+  // 重置文件上传
+  contractFileList.value = []
+  selectedContractFile.value = null
+  contractForm.contractFile = null
 }
 
 // 加载房源信息
@@ -237,8 +247,81 @@ const loadHouseInfo = async () => {
   }
 }
 
+// 处理合同文件选择
+const handleContractFileChange = (file) => {
+  if (!file || !file.raw) {
+    return
+  }
+  
+  // 检查文件大小（10MB）
+  const maxSize = 10 * 1024 * 1024
+  if (file.raw.size > maxSize) {
+    ElMessage.error('文件大小不能超过10MB')
+    contractFileList.value = []
+    selectedContractFile.value = null
+    // 触发表单验证
+    if (contractFormRef.value) {
+      contractFormRef.value.validateField('contractFile')
+    }
+    return
+  }
+  
+  // 检查文件类型（支持PDF、Word和TXT格式）
+  const fileName = file.raw.name || ''
+  const fileType = file.raw.type || ''
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain'
+  ]
+  const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt']
+  
+  const isValidType = allowedMimeTypes.includes(fileType) || 
+    allowedExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
+  
+  if (!isValidType) {
+    ElMessage.error('请上传PDF、Word或TXT格式的合同文件')
+    contractFileList.value = []
+    selectedContractFile.value = null
+    // 触发表单验证
+    if (contractFormRef.value) {
+      contractFormRef.value.validateField('contractFile')
+    }
+    return
+  }
+  
+  selectedContractFile.value = file.raw
+  // 更新表单数据以触发表单验证
+  contractForm.contractFile = file.raw.name
+  // 触发表单验证
+  if (contractFormRef.value) {
+    contractFormRef.value.validateField('contractFile')
+  }
+}
+
+// 处理合同文件移除
+const handleContractFileRemove = () => {
+  selectedContractFile.value = null
+  contractForm.contractFile = null
+  // 触发表单验证
+  if (contractFormRef.value) {
+    contractFormRef.value.validateField('contractFile')
+  }
+}
+
 // 提交合同
 const submitContract = async () => {
+  // 先检查文件是否已选择
+  if (!selectedContractFile.value) {
+    ElMessage.warning('请选择合同文件')
+    // 触发表单验证以显示错误
+    if (contractFormRef.value) {
+      contractFormRef.value.validateField('contractFile')
+    }
+    return
+  }
+
   if (!contractFormRef.value) return
 
   try {
@@ -250,10 +333,10 @@ const submitContract = async () => {
 
   try {
     await ElMessageBox.confirm(
-      '确认要签署此购房合同吗？合同一经签署即具法律效力，请谨慎操作。',
-      '确认签署合同',
+      '确认要提交此购房合同申请吗？请等待卖家审核。',
+      '确认提交申请',
       {
-        confirmButtonText: '确认签署',
+        confirmButtonText: '确认提交',
         cancelButtonText: '取消',
         type: 'warning',
         dangerouslyUseHTMLString: false
@@ -262,31 +345,46 @@ const submitContract = async () => {
 
     submitting.value = true
 
-    const contractData = {
-      propertyid: parseInt(contractForm.propertyid),
-      buyerid: parseInt(contractForm.buyerid),
-      signingdate: contractForm.signingdate,
-      contractstatus: contractForm.contractstatus
+    // 先上传合同文件
+    const uploadResponse = await contractsApi.uploadContractFile(selectedContractFile.value)
+    
+    if (!uploadResponse.success) {
+      ElMessage.error(uploadResponse.errorMsg || '合同文件上传失败')
+      return
     }
 
-    const response = await contractsApi.createContract(contractData)
+    // 获取文件URI，可能是 response.data 或 response.data.uri
+    const contractFileUri = uploadResponse.data?.uri || uploadResponse.data
+
+    if (!contractFileUri) {
+      ElMessage.error('获取文件URI失败，请重试')
+      return
+    }
+
+    // 提交合同申请
+    const applicationData = {
+      propertyId: parseInt(contractForm.propertyid),
+      contractFileUri: contractFileUri
+    }
+
+    const response = await contractsApi.applyContract(applicationData)
 
     if (response.success) {
-      ElMessage.success('合同签署成功！')
+      ElMessage.success('合同申请提交成功！请等待卖家审核')
 
       // 可以在这里添加跳转到合同详情页面的逻辑
       setTimeout(() => {
         goBack()
       }, 1500)
     } else {
-      ElMessage.error(response.errorMsg || '合同签署失败，请稍后再试')
+      ElMessage.error(response.errorMsg || '合同申请失败，请稍后再试')
     }
   } catch (error) {
     if (error === 'cancel') {
       return // 用户取消操作
     }
-    console.error('签署合同失败:', error)
-    ElMessage.error('签署合同失败，请稍后再试')
+    console.error('提交合同申请失败:', error)
+    ElMessage.error('提交合同申请失败，请稍后再试')
   } finally {
     submitting.value = false
   }
@@ -395,6 +493,12 @@ const goBack = () => {
         .el-button {
           min-width: 120px;
         }
+      }
+
+      .el-upload__tip {
+        color: #999;
+        font-size: 12px;
+        margin-top: 5px;
       }
     }
   }

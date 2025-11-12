@@ -15,7 +15,7 @@ export const adminRoutes = [
     meta: {
       title: '数据概览',
       icon: 'DataAnalysis',
-      roles: ['卖家', '管理员'],
+      roles: ['管理员'], // 只有管理员可以访问数据概览
     },
   },
   {

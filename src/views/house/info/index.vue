@@ -280,11 +280,20 @@ const getHouseList = async () => {
     if (response && response.success) {
       // 后端返回格式：Result.ok(propertiesList)，所以 data 就是列表
       const data = response.data || []
-      houseList.value = Array.isArray(data) ? data.map(item => ({
-        id: item.propertyid,
-        name: item.title || item.name || '未命名房源',
-        image: item.image || 'https://www.dmoe.cc/random.php?id=' + Math.random()
-      })) : []
+      const { filesApi } = await import('@/api/index')
+      houseList.value = Array.isArray(data) ? data.map(item => {
+        // 获取第一张图片，如果没有则使用默认随机图片
+        let imageUrl = 'https://www.dmoe.cc/random.php?id=' + Math.random()
+        if (item.photoList && item.photoList.length > 0 && item.photoList[0]) {
+          // 使用 filesApi 获取完整URL
+          imageUrl = filesApi.getFileUrl(item.photoList[0])
+        }
+        return {
+          id: item.propertyid,
+          name: item.title || item.name || '未命名房源',
+          image: imageUrl
+        }
+      }) : []
       console.log('解析后的房源列表:', houseList.value)
     } else {
       // 如果返回失败，显示错误信息

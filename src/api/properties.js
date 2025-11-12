@@ -114,6 +114,19 @@ const propertiesApi = {
       params: searchParams,
     });
   },
+
+  /**
+   * 管理员审核房源
+   * @param {number} propertyid - 房源ID
+   * @param {string} status - 审核状态（'在售'表示审核通过，'审核拒绝'表示审核拒绝）
+   */
+  approveProperty(propertyid, status) {
+    return request({
+      url: `/properties/approve/${propertyid}`,
+      method: 'put',
+      params: { status },
+    });
+  },
 };
 
 export default propertiesApi;

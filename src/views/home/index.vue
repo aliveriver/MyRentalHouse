@@ -1,17 +1,32 @@
 <template>
   <div class="dashboard">
-    <!-- 头部信息栏 -->
-    <div class="header-info">
-      <el-alert
-        title="欢迎使用二手房管理平台"
-        :description="`您本次登录时间为${formatCurrentTime()}，登录IP:${loginIP}`"
-        show-icon
-        :closable="false"
-        type="success"
-      />
+    <!-- 卖家不能访问数据概览 -->
+    <div v-if="isSeller" class="no-access">
+      <el-result
+        icon="warning"
+        title="无访问权限"
+        sub-title="卖家无法访问数据概览页面，请使用其他功能"
+      >
+        <template #extra>
+          <el-button type="primary" @click="goToHouseList">前往房源列表</el-button>
+        </template>
+      </el-result>
     </div>
 
-    <!-- 统计卡片区域 -->
+    <!-- 管理员可以看到数据概览 -->
+    <template v-else>
+      <!-- 头部信息栏 -->
+      <div class="header-info">
+        <el-alert
+          title="欢迎使用二手房管理平台"
+          :description="`您本次登录时间为${formatCurrentTime()}，登录IP:${loginIP}`"
+          show-icon
+          :closable="false"
+          type="success"
+        />
+      </div>
+
+      <!-- 统计卡片区域 -->
     <el-row :gutter="20" class="stats-cards" v-loading="statsLoading">
       <el-col :span="6">
         <el-card class="stat-card">
@@ -255,6 +270,7 @@
         </el-card>
       </el-col>
     </el-row>
+    </template>
   </div>
 </template>
 
@@ -278,12 +294,20 @@ import {
 } from '@/api/index'
 import { ElMessage } from 'element-plus'
 import useStore from '@/store/index'
+import { useRouter } from 'vue-router'
 
 const chartRef = ref(null)
 const store = useStore()
+const router = useRouter()
 
 // 获取用户角色
 const userRole = computed(() => store.userInfo?.role || '买家')
+
+// 检查是否为管理员
+const isAdmin = computed(() => userRole.value === '管理员')
+
+// 检查是否为卖家
+const isSeller = computed(() => userRole.value === '卖家')
 
 // 加载状态
 const statsLoading = ref(false)
@@ -643,7 +667,17 @@ const initChart = () => {
   })
 }
 
+// 跳转到房源列表
+const goToHouseList = () => {
+  router.push('/house/list')
+}
+
 onMounted(async () => {
+  // 如果是卖家，不加载数据概览
+  if (isSeller.value) {
+    return
+  }
+  
   await loadStatsData()
   await loadDetailStats()
   loadMonthlyData()
@@ -658,6 +692,13 @@ onMounted(async () => {
 <style lang="scss" scoped>
 .dashboard {
   min-height: 100vh;
+
+  .no-access {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+  }
 
   .header-info {
     margin-bottom: 20px;

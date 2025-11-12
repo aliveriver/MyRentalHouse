@@ -38,9 +38,10 @@
               style="width: 100%"
               clearable
             >
-              <el-option label="在售" value="在售" />
-              <el-option label="已售" value="已售" />
               <el-option label="待审核" value="待审核" />
+              <el-option label="在售" value="在售" />
+              <el-option label="已售出" value="已售出" />
+              <el-option label="审核拒绝" value="审核拒绝" />
               <el-option label="下架" value="下架" />
             </el-select>
           </div>
@@ -105,18 +106,36 @@
             在售
           </el-button>
           <el-button
-            :type="currentStatusFilter === '已售' ? 'primary' : ''"
+            :type="currentStatusFilter === '已售出' ? 'primary' : ''"
             size="small"
-            @click="handleStatusFilter('已售')"
+            @click="handleStatusFilter('已售出')"
           >
-            已售
+            已售出
           </el-button>
+          <!-- 管理员和卖家可以看到待审核状态 -->
           <el-button
+            v-if="isAdmin || isSeller"
             :type="currentStatusFilter === '待审核' ? 'primary' : ''"
             size="small"
             @click="handleStatusFilter('待审核')"
           >
             待审核
+          </el-button>
+          <!-- 管理员可以看到审核拒绝状态 -->
+          <el-button
+            v-if="isAdmin"
+            :type="currentStatusFilter === '审核拒绝' ? 'primary' : ''"
+            size="small"
+            @click="handleStatusFilter('审核拒绝')"
+          >
+            审核拒绝
+          </el-button>
+          <el-button
+            :type="currentStatusFilter === '下架' ? 'primary' : ''"
+            size="small"
+            @click="handleStatusFilter('下架')"
+          >
+            下架
           </el-button>
         </el-button-group>
       </div>
@@ -162,16 +181,18 @@
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag
-              :type="row.status === '在售' ? 'success' : row.status === '待审核' ? 'warning' : row.status === '已售' ? 'info' : 'danger'"
+              :type="getStatusTagType(row.status)"
               size="small"
             >
               {{ row.status }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" align="center" fixed="right">
+        <el-table-column label="操作" :width="isAdmin ? 200 : 120" align="center" fixed="right">
           <template #default="{ row }">
+            <!-- 卖家不能编辑待审核状态的房源 -->
             <el-button
+              v-if="!(isSeller && row.status === '待审核')"
               type="primary"
               size="small"
               link
@@ -179,6 +200,39 @@
             >
               编辑
             </el-button>
+            <el-tooltip
+              v-if="isSeller && row.status === '待审核'"
+              content="待审核状态的房源不能编辑"
+              placement="top"
+            >
+              <el-button
+                type="primary"
+                size="small"
+                link
+                disabled
+              >
+                编辑
+              </el-button>
+            </el-tooltip>
+            <!-- 管理员审核按钮 -->
+            <template v-if="isAdmin && row.status === '待审核'">
+              <el-button
+                type="success"
+                size="small"
+                link
+                @click="handleApprove(row, '在售')"
+              >
+                审核通过
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                link
+                @click="handleApprove(row, '审核拒绝')"
+              >
+                审核拒绝
+              </el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -241,6 +295,18 @@ import useStore from '@/store/index'
 const router = useRouter();
 const store = useStore();
 
+// 检查是否为管理员
+const isAdmin = computed(() => {
+  const role = store.getUserRole
+  return role === '管理员'
+})
+
+// 检查是否为卖家
+const isSeller = computed(() => {
+  const role = store.getUserRole
+  return role === '卖家'
+})
+
 // 搜索表单
 const searchForm = ref({
   name: '',
@@ -274,9 +340,63 @@ const filteredHouses = computed(() => {
   if (searchForm.value.name) {
     const keyword = searchForm.value.name.toLowerCase()
     result = result.filter(house =>
-      house.title.toLowerCase().includes(keyword) ||
-      house.id.toLowerCase().includes(keyword)
+      (house.title && house.title.toLowerCase().includes(keyword)) ||
+      (house.id && house.id.toString().toLowerCase().includes(keyword))
     )
+  }
+
+  // 按价格范围筛选
+  if (searchForm.value.priceRange) {
+    const [minPrice, maxPrice] = searchForm.value.priceRange.split('-').map(Number)
+    result = result.filter(house => {
+      const price = house.price || 0
+      if (minPrice > 0 && maxPrice > 0) {
+        // 价格区间：minPrice - maxPrice
+        return price >= minPrice && price <= maxPrice
+      } else if (minPrice > 0 && maxPrice === 0) {
+        // 200万以上
+        return price >= minPrice
+      } else if (minPrice === 0 && maxPrice > 0) {
+        // 50万以下
+        return price <= maxPrice
+      }
+      return true
+    })
+  }
+
+  // 按状态筛选（优先使用快速筛选，如果没有则使用搜索表单的状态）
+  const statusFilter = currentStatusFilter.value || searchForm.value.status
+  if (statusFilter) {
+    result = result.filter(house => {
+      // 兼容"已售"和"已售出"两种状态值
+      if (statusFilter === '已售出' || statusFilter === '已售') {
+        return house.status === '已售出' || house.status === '已售'
+      }
+      return house.status === statusFilter
+    })
+  }
+
+  // 按发布时间筛选
+  if (searchForm.value.addTime) {
+    const filterDate = new Date(searchForm.value.addTime)
+    const filterYear = filterDate.getFullYear()
+    const filterMonth = filterDate.getMonth() + 1
+    const filterDay = filterDate.getDate()
+    
+    result = result.filter(house => {
+      // 优先使用原始日期对象，如果没有则尝试解析字符串
+      const houseDate = house.publishDate || (house.addTime ? new Date(house.addTime) : null)
+      if (!houseDate || isNaN(houseDate.getTime())) return false
+      
+      const houseYear = houseDate.getFullYear()
+      const houseMonth = houseDate.getMonth() + 1
+      const houseDay = houseDate.getDate()
+      
+      // 比较年月日
+      return houseYear === filterYear && 
+             houseMonth === filterMonth && 
+             houseDay === filterDay
+    })
   }
 
   return result
@@ -293,27 +413,39 @@ const paginatedHouses = computed(() => {
 const getHouseList = async () => {
   try {
     loading.value = true
+    // 获取所有数据以便前端过滤
     const response = await propertiesApi.getAllProperties({
-      page: currentPage.value,
-      size: pageSize.value
+      page: 1,
+      size: 10000  // 获取足够多的数据以便前端过滤
     })
 
     if (response && response.success) {
+      // 导入 filesApi
+      const { filesApi } = await import('@/api/index')
       // 将API返回的数据映射到组件需要的格式
-      houseList.value = response.data.map(item => ({
-        id: item.propertyid,
-        title: item.title,
-        price: item.price,
-        location: item.address,
-        addTime: new Date(item.publishdate).toLocaleString(),
-        status: item.status,
-        description: item.description,
-        area: item.area,
-        layout: item.layout,
-        sellerid: item.sellerid,
-        tagIds: item.tagIds || [],
-        image: 'https://via.placeholder.com/300x200?text=房源图片' // 默认图片
-      }))
+      houseList.value = response.data.map(item => {
+        // 获取第一张图片，如果没有则使用默认图片
+        let imageUrl = 'https://www.dmoe.cc/random.php?id=' + Math.random()
+        if (item.photoList && item.photoList.length > 0 && item.photoList[0]) {
+          imageUrl = filesApi.getFileUrl(item.photoList[0])
+        }
+        const publishDate = item.publishdate ? new Date(item.publishdate) : null
+        return {
+          id: item.propertyid,
+          title: item.title,
+          price: item.price,
+          location: item.address,
+          addTime: publishDate ? publishDate.toLocaleString() : '',
+          publishDate: publishDate, // 保存原始日期对象用于过滤
+          status: item.status,
+          description: item.description,
+          area: item.area,
+          layout: item.layout,
+          sellerid: item.sellerid,
+          tagIds: item.tagIds || [],
+          image: imageUrl
+        }
+      })
     } else {
       // 如果接口返回失败，显示错误信息
       ElMessage.error(response?.errorMsg || '获取房源列表失败')
@@ -330,60 +462,12 @@ const getHouseList = async () => {
   }
 }
 
-// 搜索房源
-const handleSearch = async () => {
-  try {
-    loading.value = true
-    const searchParams = {}
-
-    // 如果有搜索名称，添加关键词搜索
-    if (searchForm.value.name) {
-      searchParams.keyword = searchForm.value.name
-    }
-
-    // 如果有状态筛选
-    if (searchForm.value.status) {
-      searchParams.status = searchForm.value.status
-    }
-
-    // 如果有价格范围筛选
-    if (searchForm.value.priceRange) {
-      const [minPrice, maxPrice] = searchForm.value.priceRange.split('-').map(Number)
-      if (minPrice > 0) searchParams.minPrice = minPrice
-      if (maxPrice > 0) searchParams.maxPrice = maxPrice
-    }
-
-    // 如果有时间筛选，添加发布日期筛选
-    if (searchForm.value.addTime) {
-      searchParams.publishdate = searchForm.value.addTime
-    }
-
-    const response = await propertiesApi.searchProperties(searchParams)
-
-    if (response && response.success) {
-      houseList.value = response.data.map(item => ({
-        id: item.propertyid,
-        title: item.title,
-        price: item.price,
-        location: item.address,
-        addTime: new Date(item.publishdate).toLocaleString(),
-        status: item.status,
-        description: item.description,
-        area: item.area,
-        layout: item.layout,
-        sellerid: item.sellerid,
-        tagIds: item.tagIds || [],
-        image: 'https://via.placeholder.com/300x200?text=房源图片' // 默认图片
-      }))
-      currentPage.value = 1
-      ElMessage.success('查询完成')
-    }
-  } catch (error) {
-    console.error('搜索失败:', error)
-    ElMessage.error('搜索失败')
-  } finally {
-    loading.value = false
-  }
+// 搜索房源 - 现在使用前端过滤，过滤框更改会立即生效
+const handleSearch = () => {
+  // 重置到第一页
+  currentPage.value = 1
+  // 过滤逻辑已经在 filteredHouses 计算属性中实现，这里只需要提示用户
+  ElMessage.success('筛选完成')
 }
 
 const handleReset = () => {
@@ -393,9 +477,9 @@ const handleReset = () => {
     status: '',
     addTime: ''
   }
+  currentStatusFilter.value = ''
   currentPage.value = 1
-  // 重新获取数据
-  getHouseList()
+  // 不需要重新获取数据，过滤逻辑会自动更新
   ElMessage.success('重置完成')
 }
 
@@ -404,6 +488,11 @@ const handleAdd = () => {
 }
 
 const handleEditDetail = (row) => {
+  // 卖家不能编辑待审核状态的房源
+  if (isSeller.value && row.status === '待审核') {
+    ElMessage.warning('待审核状态的房源不能编辑')
+    return
+  }
   router.push({
     path: '/house/add',
     query: {
@@ -477,10 +566,72 @@ onMounted(() => {
 })
 
 // 状态快速筛选
-const handleStatusFilter = async (status) => {
+const handleStatusFilter = (status) => {
   currentStatusFilter.value = status
-  searchForm.value.status = status
-  await handleSearch()
+  // 同步更新搜索表单的状态字段
+  if (status) {
+    searchForm.value.status = status
+  } else {
+    // 如果选择"全部"，清除状态筛选
+    searchForm.value.status = ''
+  }
+  currentPage.value = 1
+  // 过滤逻辑已经在 filteredHouses 计算属性中实现
+}
+
+// 获取状态标签类型
+const getStatusTagType = (status) => {
+  switch (status) {
+    case '在售':
+      return 'success'
+    case '待审核':
+      return 'warning'
+    case '已售':
+    case '已售出':  // 兼容两种状态值
+      return 'info'
+    case '审核拒绝':
+      return 'danger'
+    case '下架':
+      return 'info'
+    default:
+      return ''
+  }
+}
+
+// 管理员审核房源
+const handleApprove = async (row, status) => {
+  try {
+    const action = status === '在售' ? '通过' : '拒绝'
+    await ElMessageBox.confirm(
+      `确定要${action}该房源吗？`,
+      '审核确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    loading.value = true
+    const response = await propertiesApi.approveProperty(row.id, status)
+    
+    if (response && response.success) {
+      ElMessage.success(`审核${action}成功`)
+      // 更新本地数据
+      row.status = status
+      // 刷新列表
+      await getHouseList()
+    } else {
+      ElMessage.error(response?.errorMsg || `审核${action}失败`)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('审核失败:', error)
+      ElMessage.error('审核失败')
+    }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 

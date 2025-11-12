@@ -68,11 +68,14 @@
     <!-- 操作按钮区 -->
     <div class="action-section">
       <div class="left-actions">
-        <el-button type="primary" @click="handleAdd">
+        <!-- 只有管理员可以添加资讯 -->
+        <el-button v-if="isAdmin" type="primary" @click="handleAdd">
           <el-icon><Plus /></el-icon>
           添加资讯
         </el-button>
+        <!-- 只有管理员可以批量删除 -->
         <el-button
+          v-if="isAdmin"
           type="danger"
           :disabled="!selectedItems.length"
           @click="handleBatchDelete"
@@ -176,22 +179,21 @@
         </el-table-column>
         <el-table-column label="操作" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button
-              type="primary"
-              size="small"
-              link
-              @click="handleEdit(row)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              type="danger"
-              size="small"
-              link
-              @click="handleDelete(row)"
-            >
-              删除
-            </el-button>
+            <!-- 只有管理员可以编辑和删除 -->
+            <template v-if="isAdmin">
+              <el-button
+                type="danger"
+                size="small"
+                link
+                @click="handleDelete(row)"
+              >
+                删除
+              </el-button>
+            </template>
+            <!-- 卖家只能查看 -->
+            <template v-else>
+              <span style="color: #909399; font-size: 12px;">仅查看</span>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -264,7 +266,8 @@
       </div>
       <template #footer>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
-        <el-button type="primary" @click="handleEditFromDetail">编辑</el-button>
+        <!-- 只有管理员可以编辑 -->
+        <el-button v-if="isAdmin" type="primary" @click="handleEditFromDetail">编辑</el-button>
       </template>
     </el-dialog>
   </div>
@@ -277,8 +280,21 @@ import { Search, Plus, Delete } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { infoApi } from '@/api'
 import { infoTags } from '@/constant/tags'
+import useStore from '@/store/index'
 
 const router = useRouter()
+const store = useStore()
+
+// 检查用户角色
+const isAdmin = computed(() => {
+  const role = store.getUserRole
+  return role === '管理员'
+})
+
+const isSeller = computed(() => {
+  const role = store.getUserRole
+  return role === '卖家'
+})
 
 // 响应式数据
 const loading = ref(false)
@@ -452,15 +468,16 @@ const handleViewDetail = (row) => {
   detailDialogVisible.value = true
 }
 
-// 编辑资讯
+// 编辑资讯 - 已禁用，资讯不能修改
 const handleEdit = (row) => {
-  router.push(`/info/list/add?id=${row.infoid}&mode=edit`)
+  ElMessage.warning('资讯创建后不能修改，只能删除')
 }
 
 // 从详情页编辑
 const handleEditFromDetail = () => {
   detailDialogVisible.value = false
-  handleEdit(currentInfo.value)
+  // 资讯不能修改，只能删除
+  ElMessage.warning('资讯创建后不能修改，只能删除')
 }
 
 // 删除单个资讯

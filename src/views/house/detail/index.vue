@@ -1,7 +1,7 @@
 <template>
   <div class="house-detail-container">
-    <!-- 房源图片轮播 -->
-    <div class="house-gallery">
+    <!-- 房源图片轮播 - 只在有图片时显示 -->
+    <div class="house-gallery" v-if="houseData.images && houseData.images.length > 0">
       <el-carousel :interval="5000" type="card" height="400px">
         <el-carousel-item
           v-for="(image, index) in houseData.images"
@@ -36,6 +36,15 @@
                 class="appointment-btn"
               >
                 预约看房
+              </el-button>
+              <el-button
+                type="warning"
+                :icon="Document"
+                @click="showContractDialog"
+                :loading="contractLoading"
+                class="contract-btn"
+              >
+                申请签署合同
               </el-button>
             </div>
           </div>
@@ -148,25 +157,22 @@
       </div>
     </div>
 
-    <!-- 联系信息 -->
+    <!-- 卖家信息 -->
     <div class="contact-section">
-      <div class="agent-info">
-        <div class="agent-avatar">
-          <el-avatar :size="60" :src="houseData.agent.avatar" />
+      <div class="seller-info">
+        <div class="seller-avatar">
+          <el-avatar :size="60" :src="sellerInfo.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
         </div>
-        <div class="agent-details">
-          <div class="agent-name">{{ houseData.agent.name }}</div>
-          <div class="agent-title">{{ houseData.agent.title }}</div>
-          <div class="agent-rating">
-            <el-rate v-model="houseData.agent.rating" disabled show-score />
+        <div class="seller-details">
+          <div class="seller-name">卖家ID：{{ sellerInfo.userid || houseData.sellerid || '未知' }}</div>
+          <div class="seller-username">用户名：{{ sellerInfo.username || '未知' }}</div>
+          <div class="seller-phone" v-if="sellerInfo.phonenumber || sellerInfo.phoneNumber">
+            <el-icon><Phone /></el-icon>
+            联系电话：{{ sellerInfo.phonenumber || sellerInfo.phoneNumber }}
           </div>
         </div>
         <div class="contact-actions">
-          <el-button type="primary" size="large" @click="contactAgent">
-            <el-icon><Phone /></el-icon>
-            联系经纪人
-          </el-button>
-          <el-button size="large" @click="viewPhone"> 查看电话 </el-button>
+          <el-button size="large" @click="viewSellerPhone" v-if="sellerInfo.phonenumber || sellerInfo.phoneNumber"> 查看电话 </el-button>
         </div>
       </div>
     </div>
@@ -239,6 +245,58 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 申请签署合同对话框 -->
+    <el-dialog
+      v-model="contractDialogVisible"
+      title="申请签署合同"
+      width="600px"
+      :close-on-click-modal="false"
+      class="contract-dialog"
+    >
+      <el-form
+        ref="contractFormRef"
+        :model="contractForm"
+        :rules="contractRules"
+        label-width="120px"
+        label-position="left"
+      >
+        <el-form-item label="房源信息" prop="propertyId">
+          <el-input v-model="houseData.title" disabled />
+        </el-form-item>
+        <el-form-item label="合同文件" prop="contractFile">
+          <el-upload
+            ref="uploadRef"
+            :auto-upload="false"
+            :on-change="handleContractFileChange"
+            :on-remove="handleContractFileRemove"
+            :limit="1"
+            accept=".pdf,.doc,.docx,.txt"
+            :file-list="contractFileList"
+          >
+            <el-button type="primary">选择合同文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">
+                请上传PDF、Word或TXT格式的合同文件，文件大小不超过10MB
+              </div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="contractDialogVisible = false">取消</el-button>
+          <el-button
+            type="primary"
+            @click="submitContractApplication"
+            :loading="contractSubmitting"
+          >
+            提交申请
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -246,11 +304,11 @@
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Location, Guide, Phone, Star, StarFilled, Calendar } from '@element-plus/icons-vue'
+import { Location, Guide, Phone, Star, StarFilled, Calendar, Document } from '@element-plus/icons-vue'
 import AMapLoader from "@amap/amap-jsapi-loader"
-import { propertiesApi, favoritesApi, viewingAppointmentsApi } from "@/api/index"
+import { propertiesApi, favoritesApi, viewingAppointmentsApi, filesApi, contractsApi, userManagementApi } from "@/api/index"
 import { key_web_js } from "@/components/map/config.js"
-import { all, houseTags, orientationTags, afitmentTags, typeTags } from "@/constant/tags"
+import { all, houseTags, orientationTags, afitmentTags, typeTags, buildYearTags, elevatorRatioTags, floorTags } from "@/constant/tags"
 
 const route = useRoute()
 const router = useRouter()
@@ -277,13 +335,7 @@ const houseData = ref({
   address: '朝阳区朝阳门南大街xx号',
   tags: ['地铁房', '精装修', '南北通透', '满两年', '随时看房'],
   description: '此房为三居室，客厅朝南，主卧朝南，次卧朝北，南北通透，采光充足。房屋精装修，保养良好，拎包即可入住。小区环境优美，物业管理完善，交通便利，紧邻地铁站，生活配套齐全。业主诚心出售，价格可议。',
-  images: [
-    'https://img.zx123.cn/Resources/zx123cn/uploadfile/2020/0507/6bf211145acaf9038e4278f6de6a50eb.jpg',
-    'https://th.bing.com/th/id/OIP.QyILwLXJ6QFHEm7XrlzAewHaFj?rs=1&pid=ImgDetMain',
-    'https://th.bing.com/th/id/R.dd2867b72c2a6e1a2d57ac34af123de5?rik=32I4kAm4igk4cg&riu=http%3a%2f%2fdocs.ebdoor.com%2fImage%2fProductImage%2f0%2f458%2f4581417_1.jpg&ehk=F4yX1W1Gi8IWxhHbzrrYOPyTqn8muWuvLKQ87laSOhQ%3d&risl=&pid=ImgRaw&r=0',
-    'https://mofang-renter.oss-cn-shanghai.aliyuncs.com/store/1594622517006.jpg',
-    'https://pic.fapai.cn/pic/20250520/17477349301853291.jpeg'
-  ],
+  images: [], // 图片列表，从后端获取
   facilities: [
     {
       type: '交通',
@@ -317,13 +369,16 @@ const houseData = ref({
       ]
     }
   ],
-  agent: {
-    name: '张经理',
-    title: '高级置业顾问',
-    avatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png',
-    rating: 4.8,
-    phone: '138****8888'
-  }
+  sellerid: null
+})
+
+// 卖家信息
+const sellerInfo = ref({
+  userid: null,
+  username: '',
+  phonenumber: '',
+  phoneNumber: '', // 兼容两种字段名
+  avatar: ''
 })
 
 // 推荐房源
@@ -353,11 +408,66 @@ const appointmentRules = {
   ]
 }
 
+// 合同相关状态
+const contractDialogVisible = ref(false)
+const contractLoading = ref(false)
+const contractSubmitting = ref(false)
+const contractFormRef = ref()
+const uploadRef = ref()
+const contractFileList = ref([])
+const selectedContractFile = ref(null)
+
+// 合同表单数据
+const contractForm = ref({
+  propertyId: null,
+  contractFile: null
+})
+
+// 合同表单验证规则
+const contractRules = {
+  contractFile: [
+    {
+      validator: (rule, value, callback) => {
+        if (!selectedContractFile.value) {
+          callback(new Error('请上传合同文件'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'change'
+    }
+  ]
+}
+
+// 随机打乱数组的辅助函数
+const shuffleArray = (array) => {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 const getHouseList = () => {
+  const currentHouseId = houseData.value.id
   propertiesApi.getAllProperties().then(response => {
     if (response.success) {
-      const data = response.data.splice(0, 3)
+      // 排除当前正在查看的房源
+      let availableHouses = response.data.filter(item => item.propertyid !== currentHouseId)
+      
+      // 随机打乱数组
+      availableHouses = shuffleArray(availableHouses)
+      
+      // 取前3个
+      const data = availableHouses.slice(0, 3)
+      
       recommendedHouses.value = data.map(item => {
+        // 获取第一张图片，如果没有则使用默认图片
+        let imageUrl = 'https://www.dmoe.cc/random.php?id=' + Math.random()
+        if (item.photoList && item.photoList.length > 0 && item.photoList[0]) {
+          imageUrl = filesApi.getFileUrl(item.photoList[0])
+        }
         return {
           id: item.propertyid,
           title: item.title,
@@ -365,7 +475,7 @@ const getHouseList = () => {
           area: item.area + "m²",
           location: item.address,
           totalPrice: item.price,
-          image: ''
+          image: imageUrl
         }
       })
     } else {
@@ -376,14 +486,40 @@ const getHouseList = () => {
     ElMessage.error('获取房源列表失败，请稍后再试。')
   })
 }
-getHouseList();
 
-const contactAgent = () => {
-  ElMessage.success('已为您转接经纪人，请稍候...')
+// 获取卖家信息
+const getSellerInfo = async (sellerId) => {
+  if (!sellerId) {
+    return
+  }
+  try {
+    const response = await userManagementApi.getUserById(sellerId)
+    if (response.success && response.data) {
+      // 兼容两种字段名：phonenumber 和 phoneNumber
+      const phone = response.data.phonenumber || response.data.phoneNumber || ''
+      sellerInfo.value = {
+        userid: response.data.userid,
+        username: response.data.username || '未知',
+        phonenumber: phone,
+        phoneNumber: phone, // 兼容两种字段名
+        avatar: response.data.avatar || ''
+      }
+    } else {
+      console.warn('获取卖家信息失败:', response.errorMsg)
+    }
+  } catch (error) {
+    console.error('获取卖家信息失败:', error)
+  }
 }
 
-const viewPhone = () => {
-  ElMessage.info(`经纪人电话：${houseData.value.agent.phone}`)
+
+const viewSellerPhone = () => {
+  const phone = sellerInfo.value.phonenumber || sellerInfo.value.phoneNumber
+  if (phone) {
+    ElMessage.info(`卖家电话：${phone}`)
+  } else {
+    ElMessage.warning('卖家未提供联系方式')
+  }
 }
 
 const goToHouse = (houseId) => {
@@ -495,7 +631,7 @@ const getTargetHouseDetail = () => {
   propertiesApi.getPropertyById(houseId).then(response => {
     if (response.success) {
       const data = response.data;
-      houseData.value.agent.name = "用户：" + response.data.sellerid
+      houseData.value.sellerid = data.sellerid
       houseData.value.id = data.propertyid
       houseData.value.district = data.address
       houseData.value.title = data.title
@@ -505,24 +641,50 @@ const getTargetHouseDetail = () => {
       houseData.value.rooms = data.layout
       houseData.value.description = data.description
       houseData.value.tags = data.tagIds.map(t => all.find(item => item.id === t)?.value || '未知标签')
-      houseData.value.direction = (() => {
-        const id = data.tagIds.filter(t => {
+      // 优先使用数据库字段，如果为空则从标签中获取（向后兼容）
+      houseData.value.direction = data.orientation || (() => {
+        const id = data.tagIds?.filter(t => {
           return orientationTags.some(h => h.id === t)
         })[0]
         return id ? orientationTags.find(h => h.id === id).value : '未知方向'
       })();
-      houseData.value.decoration = (() => {
-        const id = data.tagIds.filter(t => {
+      
+      houseData.value.floor = data.floor || (() => {
+        const id = data.tagIds?.filter(t => {
+          return floorTags.some(h => h.id === t)
+        })[0]
+        return id ? floorTags.find(h => h.id === id).value : '未知楼层'
+      })();
+      
+      houseData.value.decoration = data.decoration || (() => {
+        const id = data.tagIds?.filter(t => {
           return afitmentTags.some(h => h.id === t)
         })[0]
         return id ? afitmentTags.find(h => h.id === id).value : '未知装修'
       })();
-      houseData.value.buildingType = (() => {
-        const id = data.tagIds.filter(t => {
+      
+      houseData.value.buildingType = data.buildingType || (() => {
+        const id = data.tagIds?.filter(t => {
           return typeTags.some(h => h.id === t)
         })[0]
         return id ? typeTags.find(h => h.id === id).value : '未知类型'
       })();
+      
+      houseData.value.buildYear = data.buildYear || '未知年代'
+      houseData.value.elevatorRatio = data.elevatorRatio || '未知'
+
+      // 处理图片列表：从 photoList 转换为完整URL数组
+      if (data.photoList && data.photoList.length > 0) {
+        houseData.value.images = data.photoList.map(uri => filesApi.getFileUrl(uri))
+      } else {
+        // 如果没有图片，设置为空数组，轮播图将不显示
+        houseData.value.images = []
+      }
+
+      // 获取卖家信息
+      if (data.sellerid) {
+        getSellerInfo(data.sellerid)
+      }
 
       // 数据更新后初始化地图
       nextTick(() => {
@@ -531,6 +693,9 @@ const getTargetHouseDetail = () => {
 
       // 检查收藏状态
       checkFavoriteStatus()
+      
+      // 获取推荐房源（在获取房源详情后，确保有当前房源ID）
+      getHouseList()
     }
   }).catch(error => {
     console.error('获取房源数据失败:', error)
@@ -660,6 +825,153 @@ const submitAppointment = async () => {
     ElMessage.error('预约申请失败，请稍后再试')
   } finally {
     appointmentSubmitting.value = false
+  }
+}
+
+// 显示申请签署合同对话框
+const showContractDialog = () => {
+  contractDialogVisible.value = true
+  contractForm.value.propertyId = houseData.value.id
+  contractForm.value.contractFile = null
+  contractFileList.value = []
+  selectedContractFile.value = null
+  // 清除表单验证状态
+  nextTick(() => {
+    if (contractFormRef.value) {
+      contractFormRef.value.clearValidate()
+    }
+  })
+}
+
+// 处理合同文件选择
+const handleContractFileChange = (file) => {
+  if (!file || !file.raw) {
+    return
+  }
+  
+  // 检查文件大小（10MB）
+  const maxSize = 10 * 1024 * 1024
+  if (file.raw.size > maxSize) {
+    ElMessage.error('文件大小不能超过10MB')
+    contractFileList.value = []
+    selectedContractFile.value = null
+    // 触发表单验证
+    if (contractFormRef.value) {
+      contractFormRef.value.validateField('contractFile')
+    }
+    return
+  }
+  
+  // 检查文件类型（支持PDF、Word和TXT格式）
+  const fileName = file.raw.name || ''
+  const fileType = file.raw.type || ''
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain'
+  ]
+  const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt']
+  
+  const isValidType = allowedMimeTypes.includes(fileType) || 
+    allowedExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
+  
+  if (!isValidType) {
+    ElMessage.error('请上传PDF、Word或TXT格式的合同文件')
+    contractFileList.value = []
+    selectedContractFile.value = null
+    // 触发表单验证
+    if (contractFormRef.value) {
+      contractFormRef.value.validateField('contractFile')
+    }
+    return
+  }
+  
+  selectedContractFile.value = file.raw
+  // 更新表单数据以触发表单验证
+  contractForm.value.contractFile = file.raw.name
+  // 触发表单验证
+  if (contractFormRef.value) {
+    contractFormRef.value.validateField('contractFile')
+  }
+}
+
+// 处理合同文件移除
+const handleContractFileRemove = () => {
+  selectedContractFile.value = null
+  contractForm.value.contractFile = null
+  // 触发表单验证
+  if (contractFormRef.value) {
+    contractFormRef.value.validateField('contractFile')
+  }
+}
+
+// 提交合同申请
+const submitContractApplication = async () => {
+  // 先检查文件是否已选择
+  if (!selectedContractFile.value) {
+    ElMessage.warning('请选择合同文件')
+    // 触发表单验证以显示错误
+    if (contractFormRef.value) {
+      contractFormRef.value.validateField('contractFile')
+    }
+    return
+  }
+
+  // 验证表单
+  if (!contractFormRef.value) {
+    return
+  }
+
+  try {
+    await contractFormRef.value.validate()
+  } catch (error) {
+    // 表单验证失败
+    console.log('表单验证失败:', error)
+    return
+  }
+
+  contractSubmitting.value = true
+
+  try {
+    // 先上传合同文件
+    const uploadResponse = await contractsApi.uploadContractFile(selectedContractFile.value)
+    
+    if (!uploadResponse.success) {
+      ElMessage.error(uploadResponse.errorMsg || '合同文件上传失败')
+      return
+    }
+
+    // 获取文件URI，可能是 response.data 或 response.data.uri
+    const contractFileUri = uploadResponse.data?.uri || uploadResponse.data
+
+    if (!contractFileUri) {
+      ElMessage.error('获取文件URI失败，请重试')
+      return
+    }
+
+    // 提交合同申请
+    const applicationData = {
+      propertyId: houseData.value.id,
+      contractFileUri: contractFileUri
+    }
+
+    const response = await contractsApi.applyContract(applicationData)
+
+    if (response.success) {
+      ElMessage.success('合同申请提交成功！请等待卖家审核')
+      contractDialogVisible.value = false
+      contractFileList.value = []
+      selectedContractFile.value = null
+      contractForm.value.contractFile = null
+    } else {
+      ElMessage.error(response.errorMsg || '合同申请失败，请稍后再试')
+    }
+  } catch (error) {
+    console.error('合同申请失败:', error)
+    ElMessage.error('合同申请失败，请稍后再试')
+  } finally {
+    contractSubmitting.value = false
   }
 }
 
@@ -925,25 +1237,33 @@ onUnmounted(() => {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     margin-bottom: 30px;
 
-    .agent-info {
+    .seller-info {
       display: flex;
       align-items: center;
       gap: 20px;
 
-      .agent-details {
+      .seller-details {
         flex: 1;
 
-        .agent-name {
+        .seller-name {
           font-size: 18px;
           font-weight: 600;
           color: #333;
           margin-bottom: 5px;
         }
 
-        .agent-title {
+        .seller-username {
           font-size: 14px;
           color: #666;
           margin-bottom: 8px;
+        }
+
+        .seller-phone {
+          font-size: 14px;
+          color: #666;
+          display: flex;
+          align-items: center;
+          gap: 5px;
         }
       }
 
@@ -1067,6 +1387,24 @@ h3 {
   .el-dialog__footer {
     padding: 20px;
     text-align: right;
+  }
+}
+
+/* 合同申请对话框样式 */
+:deep(.contract-dialog) {
+  .el-dialog__body {
+    padding: 20px 20px 0;
+  }
+
+  .el-dialog__footer {
+    padding: 20px;
+    text-align: right;
+  }
+
+  .el-upload__tip {
+    color: #999;
+    font-size: 12px;
+    margin-top: 5px;
   }
 }
 

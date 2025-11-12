@@ -25,6 +25,12 @@ export const floorTags = [
   { id: 15, value: '低楼层' },
   { id: 16, value: '中楼层' },
   { id: 17, value: '高楼层' },
+  { id: 40, value: '1-3层' },
+  { id: 41, value: '4-6层' },
+  { id: 42, value: '7-10层' },
+  { id: 43, value: '11-15层' },
+  { id: 44, value: '16-20层' },
+  { id: 45, value: '20层以上' },
 ];
 
 export const orientationTags = [
@@ -57,9 +63,38 @@ export const typeTags = [
 ];
 
 export const statusTags = [
-  { id: 35, value: '在售' },
-  { id: 36, value: '已售出' },
-  { id: 37, value: '已预约' },
+  { id: 35, value: '待审核' },
+  { id: 36, value: '在售' },
+  { id: 37, value: '已售出' },
+  { id: 38, value: '审核拒绝' },
+  { id: 39, value: '下架' },
+];
+
+// 建筑年代枚举
+export const buildYearTags = [
+  { id: 46, value: '1990年以前' },
+  { id: 47, value: '1990-1995年' },
+  { id: 48, value: '1996-2000年' },
+  { id: 49, value: '2001-2005年' },
+  { id: 50, value: '2006-2010年' },
+  { id: 51, value: '2011-2015年' },
+  { id: 52, value: '2016-2020年' },
+  { id: 53, value: '2020年以后' },
+];
+
+// 梯户比例枚举
+export const elevatorRatioTags = [
+  { id: 54, value: '一梯一户' },
+  { id: 55, value: '一梯两户' },
+  { id: 56, value: '一梯三户' },
+  { id: 57, value: '一梯四户' },
+  { id: 58, value: '两梯两户' },
+  { id: 59, value: '两梯三户' },
+  { id: 60, value: '两梯四户' },
+  { id: 61, value: '两梯五户' },
+  { id: 62, value: '两梯六户' },
+  { id: 63, value: '三梯六户' },
+  { id: 64, value: '三梯八户' },
 ];
 
 export const all = [

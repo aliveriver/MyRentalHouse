@@ -103,12 +103,12 @@
           保存草稿
         </el-button>
         <el-button type="primary" @click="handlePublish" :loading="loading">
-          {{ isEdit ? '更新资讯' : '发布资讯' }}
+          发布资讯
         </el-button>
       </div>
       <div class="header-actions" v-else>
         <el-button @click="handleBack">返回</el-button>
-        <el-button type="primary" @click="handleEdit">编辑</el-button>
+        <!-- 资讯不能编辑，所以不显示编辑按钮 -->
       </div>
     </div>
   </div>
@@ -125,6 +125,12 @@ const store = useStore()
 
 const router = useRouter()
 const route = useRoute()
+
+// 检查用户角色
+const isAdmin = computed(() => {
+  const role = store.getUserRole
+  return role === '管理员'
+})
 
 // 页面状态
 const isEdit = ref(false)
@@ -172,10 +178,20 @@ const rules = {
 const initPage = async () => {
   const { id, mode } = route.query
 
+  // 检查权限：只有管理员可以创建资讯
+  if (!id && !isAdmin.value) {
+    ElMessage.warning('只有管理员可以创建资讯')
+    router.push('/info/list')
+    return
+  }
+
   if (mode === 'view') {
     isView.value = true
   } else if (id) {
+    // 编辑模式：资讯不能修改，只能查看
     isEdit.value = true
+    isView.value = true // 编辑模式下也设为只读
+    ElMessage.info('资讯创建后不能修改，只能删除')
   }
 
   if (id) {
@@ -255,6 +271,18 @@ const handleSaveDraft = () => {
 const handlePublish = async () => {
   if (!formRef.value) return
 
+  // 检查权限：只有管理员可以创建资讯
+  if (!isAdmin.value) {
+    ElMessage.warning('只有管理员可以创建资讯')
+    return
+  }
+
+  // 资讯不能修改，只能删除
+  if (isEdit.value) {
+    ElMessage.warning('资讯创建后不能修改，只能删除')
+    return
+  }
+
   try {
     await formRef.value.validate()
   } catch (error) {
@@ -275,22 +303,18 @@ const handlePublish = async () => {
       tagIds: form.value.tagIds
     }
 
-    let response
-    if (isEdit.value) {
-      response = await infoApi.updateInfo(form.value.infoid, submitData)
-    } else {
-      response = await infoApi.createInfo(submitData)
-    }
+    // 只能创建，不能更新
+    const response = await infoApi.createInfo(submitData)
 
     if (response.success) {
-      ElMessage.success(isEdit.value ? '资讯更新成功' : '资讯发布成功')
+      ElMessage.success('资讯发布成功')
       router.push('/info/list')
     } else {
-      ElMessage.error(response.data?.errorMsg || (isEdit.value ? '更新失败' : '发布失败'))
+      ElMessage.error(response.data?.errorMsg || '发布失败')
     }
   } catch (error) {
     console.error('提交失败:', error)
-    ElMessage.error(isEdit.value ? '更新失败' : '发布失败')
+    ElMessage.error('发布失败')
   } finally {
     loading.value = false
   }
@@ -301,11 +325,9 @@ const handleBack = () => {
   router.back()
 }
 
-// 编辑（从查看模式切换到编辑模式）
+// 编辑（从查看模式切换到编辑模式）- 已禁用，资讯不能修改
 const handleEdit = () => {
-  const query = { ...route.query }
-  delete query.mode
-  router.replace({ query })
+  ElMessage.warning('资讯创建后不能修改，只能删除')
 }
 
 // 组件挂载时初始化
