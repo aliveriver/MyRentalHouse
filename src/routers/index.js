@@ -384,12 +384,34 @@ router.beforeEach(async (to, from, next) => {
       }))
     );
 
+    // 辅助函数：检查路径是否匹配路由模式（支持动态参数）
+    const matchRoutePattern = (pattern, path) => {
+      // 精确匹配
+      if (pattern === path) return true;
+
+      // 检查动态参数路由（如 /house/detail/:id 匹配 /house/detail/123）
+      const patternSegments = pattern.split('/').filter((s) => s);
+      const pathSegments = path.split('/').filter((s) => s);
+
+      // 段数必须相同
+      if (patternSegments.length !== pathSegments.length) return false;
+
+      // 逐段比较
+      return patternSegments.every((segment, index) => {
+        // 如果是参数段（以:开头），则匹配任意值
+        if (segment.startsWith(':')) return true;
+        // 否则必须精确匹配
+        return segment === pathSegments[index];
+      });
+    };
+
     const routeExists = allRoutes.some((route) => {
-      // 检查精确匹配
-      if (route.path === to.path) {
-        console.log('找到精确匹配的路由:', route.path);
+      // 检查精确匹配或路由模式匹配
+      if (matchRoutePattern(route.path, to.path)) {
+        console.log('找到匹配的路由:', route.path, '-> 目标:', to.path);
         return true;
       }
+
       // 检查子路由
       if (route.children && route.children.length > 0) {
         const found = route.children.some((child) => {
@@ -402,28 +424,21 @@ router.beforeEach(async (to, from, next) => {
           } else {
             fullPath = route.path + '/' + child.path;
           }
+
           // 规范化路径（移除末尾斜杠）
           const normalizedFullPath = fullPath.replace(/\/$/, '');
           const normalizedToPath = to.path.replace(/\/$/, '');
 
-          // 调试输出
-          if (to.path === '/house/info') {
-            console.log('检查子路由:', {
-              routePath: route.path,
-              childPath: child.path,
-              fullPath,
-              normalizedFullPath,
-              normalizedToPath,
-              match:
-                normalizedFullPath === normalizedToPath || fullPath === to.path,
-            });
-          }
-
-          if (normalizedFullPath === normalizedToPath || fullPath === to.path) {
+          // 检查精确匹配或路由模式匹配
+          if (
+            matchRoutePattern(normalizedFullPath, normalizedToPath) ||
+            matchRoutePattern(fullPath, to.path)
+          ) {
             console.log('找到子路由匹配:', {
               routePath: route.path,
               childPath: child.path,
               fullPath,
+              targetPath: to.path,
             });
             return true;
           }
@@ -460,19 +475,24 @@ router.beforeEach(async (to, from, next) => {
         store.setUserInfo(store.userInfo); // 重新生成路由
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // 重新检查路由是否存在
+        // 重新检查路由是否存在（支持动态参数路由）
         const newRoutes = router.getRoutes();
         const routeNowExists = newRoutes.some((route) => {
-          if (route.path === to.path) return true;
+          // 使用路由模式匹配函数
+          if (matchRoutePattern(route.path, to.path)) return true;
+
           if (route.children) {
             return route.children.some((child) => {
               const fullPath =
                 route.path === '/'
                   ? '/' + child.path
                   : route.path + '/' + child.path;
+              const normalizedFullPath = fullPath.replace(/\/$/, '');
+              const normalizedToPath = to.path.replace(/\/$/, '');
+
               return (
-                fullPath === to.path ||
-                fullPath.replace(/\/$/, '') === to.path.replace(/\/$/, '')
+                matchRoutePattern(normalizedFullPath, normalizedToPath) ||
+                matchRoutePattern(fullPath, to.path)
               );
             });
           }
@@ -501,11 +521,11 @@ router.beforeEach(async (to, from, next) => {
     if (routeExists) {
       console.log('路由存在，检查权限...');
 
-      // 获取目标路由的配置（需要找到子路由的 meta）
+      // 获取目标路由的配置（需要找到子路由的 meta，支持动态参数）
       let targetRouteMeta = null;
 
       for (const route of allRoutes) {
-        if (route.path === to.path) {
+        if (matchRoutePattern(route.path, to.path)) {
           targetRouteMeta = route.meta;
           break;
         }
@@ -519,8 +539,8 @@ router.beforeEach(async (to, from, next) => {
             const normalizedToPath = to.path.replace(/\/$/, '');
 
             if (
-              normalizedFullPath === normalizedToPath ||
-              fullPath === to.path
+              matchRoutePattern(normalizedFullPath, normalizedToPath) ||
+              matchRoutePattern(fullPath, to.path)
             ) {
               targetRouteMeta = child.meta;
               break;
