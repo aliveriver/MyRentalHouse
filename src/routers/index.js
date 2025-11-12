@@ -259,6 +259,7 @@ router.beforeEach(async (to, from, next) => {
 
         // 确保store中有用户信息
         if (!store.userInfo || !store.isLogin) {
+          console.log('[路由守卫] 设置用户信息并生成路由:', userInfo);
           store.setIsLogin(true);
           store.setUserInfo(userInfo);
           // 等待路由生成
@@ -268,11 +269,14 @@ router.beforeEach(async (to, from, next) => {
         // 根据用户角色重定向到对应首页
         const { getDefaultRouteByRole } = await import('@/utils/userRole');
         const defaultRoute = getDefaultRouteByRole(userInfo.role);
-        console.log(`已登录用户访问登录页，重定向到 ${defaultRoute}`);
+        console.log(
+          `已登录用户访问登录页/根路径，角色: ${userInfo.role}，重定向到 ${defaultRoute}`
+        );
         next(defaultRoute);
         return;
       } else {
         // 如果无法获取用户信息，重定向到登录页
+        console.error('[路由守卫] 无法获取用户信息');
         next('/login');
         return;
       }
@@ -431,17 +435,6 @@ router.beforeEach(async (to, from, next) => {
     });
 
     if (!routeExists && !whiteList.includes(to.path)) {
-      // 防止无限循环：如果目标路径是 /house/info 且路由不存在，直接使用 window.location
-      if (to.path === '/house/info') {
-        console.warn('路由 /house/info 不存在，使用 window.location 跳转');
-        // 使用 nextTick 确保在下一个事件循环中跳转，并取消当前导航
-        setTimeout(() => {
-          window.location.href = '/house/info';
-        }, 0);
-        next(false); // 取消当前导航
-        return;
-      }
-
       console.warn('路由不存在，尝试重新生成:', to.path);
       console.log('当前用户信息:', store.userInfo);
       console.log('当前路由列表:', store.routes);
@@ -493,15 +486,7 @@ router.beforeEach(async (to, from, next) => {
           next();
           return;
         } else {
-          console.error('路由重新生成后仍然不存在');
-          // 如果目标路径是 /house/info，直接跳转
-          if (to.path === '/house/info') {
-            setTimeout(() => {
-              window.location.href = '/house/info';
-            }, 0);
-            next(false);
-            return;
-          }
+          console.error('路由重新生成后仍然不存在，重定向到登录页');
           next('/login');
           return;
         }
@@ -512,9 +497,63 @@ router.beforeEach(async (to, from, next) => {
       }
     }
 
-    // 如果路由存在，直接放行
+    // 如果路由存在，检查权限后再放行
     if (routeExists) {
-      console.log('路由存在，允许访问');
+      console.log('路由存在，检查权限...');
+
+      // 获取目标路由的配置（需要找到子路由的 meta）
+      let targetRouteMeta = null;
+
+      for (const route of allRoutes) {
+        if (route.path === to.path) {
+          targetRouteMeta = route.meta;
+          break;
+        }
+        if (route.children) {
+          for (const child of route.children) {
+            const fullPath =
+              route.path === '/'
+                ? '/' + child.path
+                : route.path + '/' + child.path;
+            const normalizedFullPath = fullPath.replace(/\/$/, '');
+            const normalizedToPath = to.path.replace(/\/$/, '');
+
+            if (
+              normalizedFullPath === normalizedToPath ||
+              fullPath === to.path
+            ) {
+              targetRouteMeta = child.meta;
+              break;
+            }
+          }
+          if (targetRouteMeta) break;
+        }
+      }
+
+      // 检查路由权限
+      if (targetRouteMeta?.roles) {
+        const userRole = store.userInfo?.role;
+        const hasPermission = targetRouteMeta.roles.includes(userRole);
+
+        console.log('路由权限检查:', {
+          path: to.path,
+          userRole,
+          requiredRoles: targetRouteMeta.roles,
+          hasPermission,
+        });
+
+        if (!hasPermission) {
+          console.warn(`用户角色 ${userRole} 无权访问 ${to.path}`);
+          // 重定向到用户的默认首页
+          const { getDefaultRouteByRole } = await import('@/utils/userRole');
+          const defaultRoute = getDefaultRouteByRole(userRole);
+          console.log(`重定向到默认首页: ${defaultRoute}`);
+          next(defaultRoute);
+          return;
+        }
+      }
+
+      console.log('权限检查通过，允许访问');
       next();
       return;
     }

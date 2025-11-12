@@ -259,7 +259,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import * as echarts from 'echarts'
 import {
   User,
@@ -277,8 +277,13 @@ import {
   usersApi
 } from '@/api/index'
 import { ElMessage } from 'element-plus'
+import useStore from '@/store/index'
 
 const chartRef = ref(null)
+const store = useStore()
+
+// 获取用户角色
+const userRole = computed(() => store.userInfo?.role || '买家')
 
 // 加载状态
 const statsLoading = ref(false)
@@ -361,33 +366,58 @@ const formatDate = (date) => {
 const loadStatsData = async () => {
   statsLoading.value = true
   try {
-    // 获取用户总数
-    const usersResponse = await usersApi.getAllUsers()
-    if (usersResponse.success) {
-      statsData.value.totalUsers = usersResponse.data.length
+    // 获取用户总数 - 仅管理员可访问
+    if (userRole.value === '管理员') {
+      try {
+        const usersResponse = await usersApi.getAllUsers()
+        if (usersResponse.success) {
+          statsData.value.totalUsers = usersResponse.data.length
+        }
+      } catch (error) {
+        console.warn('获取用户总数失败:', error.message)
+        statsData.value.totalUsers = 0
+      }
+    } else {
+      // 非管理员显示占位符
+      statsData.value.totalUsers = '-'
     }
 
     // 获取房源总数
-    const propertiesResponse = await propertiesApi.getAllProperties()
-    if (propertiesResponse.success) {
-      statsData.value.totalProperties = propertiesResponse.data.length
+    try {
+      const propertiesResponse = await propertiesApi.getAllProperties()
+      if (propertiesResponse.success) {
+        statsData.value.totalProperties = propertiesResponse.data.length
+      }
+    } catch (error) {
+      console.warn('获取房源总数失败:', error.message)
+      statsData.value.totalProperties = 0
     }
 
     // 获取预约总数
-    const appointmentsResponse = await viewingAppointmentsApi.getAllAppointments()
-    if (appointmentsResponse.success) {
-      statsData.value.totalAppointments = appointmentsResponse.data.length
+    try {
+      const appointmentsResponse = await viewingAppointmentsApi.getAllAppointments()
+      if (appointmentsResponse.success) {
+        statsData.value.totalAppointments = appointmentsResponse.data.length
+      }
+    } catch (error) {
+      console.warn('获取预约总数失败:', error.message)
+      statsData.value.totalAppointments = 0
     }
 
     // 获取合同总数
-    const contractsResponse = await contractsApi.getAllContracts()
-    if (contractsResponse.success) {
-      statsData.value.totalContracts = contractsResponse.data.length
+    try {
+      const contractsResponse = await contractsApi.getAllContracts()
+      if (contractsResponse.success) {
+        statsData.value.totalContracts = contractsResponse.data.length
+      }
+    } catch (error) {
+      console.warn('获取合同总数失败:', error.message)
+      statsData.value.totalContracts = 0
     }
 
   } catch (error) {
     console.error('加载统计数据失败:', error)
-    ElMessage.error('加载统计数据失败')
+    // 不再显示错误提示，避免打扰用户
   } finally {
     statsLoading.value = false
   }
@@ -398,46 +428,79 @@ const loadDetailStats = async () => {
   detailStatsLoading.value = true
   try {
     // 预约统计
-    const appointmentsResponse = await viewingAppointmentsApi.getAllAppointments()
-    if (appointmentsResponse.success) {
-      const appointments = appointmentsResponse.data
+    try {
+      const appointmentsResponse = await viewingAppointmentsApi.getAllAppointments()
+      if (appointmentsResponse.success) {
+        const appointments = appointmentsResponse.data
+        appointmentStats.value = {
+          pending: appointments.filter(a => a.status === 'PENDING').length,
+          approved: appointments.filter(a => a.status === 'APPROVED').length,
+          rejected: appointments.filter(a => a.status === 'REJECTED').length,
+          completed: appointments.filter(a => a.status === 'COMPLETED').length,
+          thisMonth: appointments.filter(a => {
+            const appointmentDate = new Date(a.appointmenttime)
+            const now = new Date()
+            return appointmentDate.getFullYear() === now.getFullYear() &&
+                   appointmentDate.getMonth() === now.getMonth()
+          }).length
+        }
+      }
+    } catch (error) {
+      console.warn('获取预约统计失败:', error.message)
       appointmentStats.value = {
-        pending: appointments.filter(a => a.status === 'PENDING').length,
-        approved: appointments.filter(a => a.status === 'APPROVED').length,
-        rejected: appointments.filter(a => a.status === 'REJECTED').length,
-        completed: appointments.filter(a => a.status === 'COMPLETED').length,
-        thisMonth: appointments.filter(a => {
-          const appointmentDate = new Date(a.appointmenttime)
-          const now = new Date()
-          return appointmentDate.getFullYear() === now.getFullYear() &&
-                 appointmentDate.getMonth() === now.getMonth()
-        }).length
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        completed: 0,
+        thisMonth: 0
       }
     }
 
     // 房源统计（模拟数据，实际需要后端支持状态字段）
-    const propertiesResponse = await propertiesApi.getAllProperties()
-    if (propertiesResponse.success) {
-      const properties = propertiesResponse.data
+    try {
+      const propertiesResponse = await propertiesApi.getAllProperties()
+      if (propertiesResponse.success) {
+        const properties = propertiesResponse.data
+        propertyStats.value = {
+          total: properties.length,
+          available: Math.floor(properties.length * 0.8), // 假设80%在售
+          sold: Math.floor(properties.length * 0.15), // 假设15%已售
+          inactive: Math.floor(properties.length * 0.05), // 假设5%下架
+          thisMonth: Math.floor(properties.length * 0.1) // 假设10%是本月新增
+        }
+      }
+    } catch (error) {
+      console.warn('获取房源统计失败:', error.message)
       propertyStats.value = {
-        total: properties.length,
-        available: Math.floor(properties.length * 0.8), // 假设80%在售
-        sold: Math.floor(properties.length * 0.15), // 假设15%已售
-        inactive: Math.floor(properties.length * 0.05), // 假设5%下架
-        thisMonth: Math.floor(properties.length * 0.1) // 假设10%是本月新增
+        total: 0,
+        available: 0,
+        sold: 0,
+        inactive: 0,
+        thisMonth: 0
       }
     }
 
     // 合同统计（模拟数据，实际需要后端支持状态字段）
-    const contractsResponse = await contractsApi.getAllContracts()
-    if (contractsResponse.success) {
-      const contracts = contractsResponse.data
+    try {
+      const contractsResponse = await contractsApi.getAllContracts()
+      if (contractsResponse.success) {
+        const contracts = contractsResponse.data
+        contractStats.value = {
+          total: contracts.length,
+          signed: Math.floor(contracts.length * 0.6),
+          active: Math.floor(contracts.length * 0.3),
+          completed: Math.floor(contracts.length * 0.1),
+          thisMonth: Math.floor(contracts.length * 0.2)
+        }
+      }
+    } catch (error) {
+      console.warn('获取合同统计失败:', error.message)
       contractStats.value = {
-        total: contracts.length,
-        signed: Math.floor(contracts.length * 0.6),
-        active: Math.floor(contracts.length * 0.3),
-        completed: Math.floor(contracts.length * 0.1),
-        thisMonth: Math.floor(contracts.length * 0.2)
+        total: 0,
+        signed: 0,
+        active: 0,
+        completed: 0,
+        thisMonth: 0
       }
     }
 
@@ -452,7 +515,7 @@ const loadDetailStats = async () => {
 
   } catch (error) {
     console.error('加载详细统计数据失败:', error)
-    ElMessage.error('加载详细统计数据失败')
+    // 不显示错误提示，避免打扰用户
   } finally {
     detailStatsLoading.value = false
   }

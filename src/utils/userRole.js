@@ -41,10 +41,25 @@ const ROLE_MAPPING = {
  * @returns {string} 标准化后的角色名称
  */
 export function normalizeRole(role) {
-  if (!role) return USER_ROLES.BUYER; // 默认为买家
+  if (!role) {
+    console.log('[normalizeRole] role 为空，返回默认值"买家"');
+    return USER_ROLES.BUYER; // 默认为买家
+  }
 
   const roleStr = String(role).toLowerCase();
-  return ROLE_MAPPING[roleStr] || ROLE_MAPPING[role] || USER_ROLES.BUYER;
+  const result =
+    ROLE_MAPPING[roleStr] || ROLE_MAPPING[role] || USER_ROLES.BUYER;
+
+  console.log(
+    '[normalizeRole] 输入:',
+    role,
+    '| roleStr:',
+    roleStr,
+    '| 输出:',
+    result
+  );
+
+  return result;
 }
 
 /**
@@ -94,16 +109,24 @@ export function isAdminRole(role) {
  * @returns {string} 默认路径
  */
 export function getDefaultRouteByRole(role) {
+  console.log('[getDefaultRouteByRole] 接收到的 role:', role);
   const normalizedRole = normalizeRole(role);
+  console.log('[getDefaultRouteByRole] 标准化后的 role:', normalizedRole);
 
+  let defaultRoute;
   switch (normalizedRole) {
     case USER_ROLES.ADMIN:
     case USER_ROLES.SELLER:
-      return '/home'; // 卖家和管理员默认到数据概览（路径改为 /home）
+      defaultRoute = '/home'; // 卖家和管理员默认到数据概览
+      break;
     case USER_ROLES.BUYER:
     default:
-      return '/house/info'; // 买家默认到房源资讯
+      defaultRoute = '/house/info'; // 买家默认到房源资讯
+      break;
   }
+
+  console.log('[getDefaultRouteByRole] 返回路径:', defaultRoute);
+  return defaultRoute;
 }
 
 /**

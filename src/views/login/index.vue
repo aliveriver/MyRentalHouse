@@ -161,7 +161,7 @@ const onSubmit = async () => {
           };
 
           console.log('Final user info:', userInfo);
-          
+
           // 保存用户信息到 localStorage（作为备份，以防 token 中没有 role）
           try {
             localStorage.setItem('userInfo', JSON.stringify(userInfo));
@@ -177,20 +177,23 @@ const onSubmit = async () => {
 
           // 等待路由生成完成后再跳转
           await new Promise(resolve => setTimeout(resolve, 300));
-          
-          // 直接使用router.push跳转，路由守卫会处理重定向
-          console.log('登录成功，准备跳转到 /house/info');
+
+          // 根据用户角色动态跳转到对应的默认页面
+          const { getDefaultRouteByRole } = await import('@/utils/userRole');
+          const defaultRoute = getDefaultRouteByRole(userInfo.role);
+          console.log(`登录成功，角色: ${userInfo.role}，准备跳转到 ${defaultRoute}`);
+
           try {
-            await router.push('/house/info');
+            await router.push(defaultRoute);
           } catch (err) {
             console.error('路由跳转失败:', err);
             // 如果跳转失败，使用replace
             try {
-              await router.replace('/house/info');
+              await router.replace(defaultRoute);
             } catch (replaceErr) {
               console.error('路由replace也失败:', replaceErr);
-              // 最后尝试使用window.location
-              window.location.href = '/house/info';
+              // 最后尝试直接跳转到根路径，让路由守卫处理
+              window.location.href = '/';
             }
           }
         } else {

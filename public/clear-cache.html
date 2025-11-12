@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>清除缓存并重新登录</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            text-align: center;
+            max-width: 500px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+            display: none;
+            margin-top: 20px;
+        }
+        .info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .info strong {
+            color: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 系统维护</h1>
+        <p>由于路由系统更新，需要清除浏览器缓存以确保系统正常运行。</p>
+        
+        <div class="info">
+            <strong>⚠️ 重要提示：</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>点击下方按钮将清除所有登录信息</li>
+                <li>清除后会自动跳转到登录页</li>
+                <li>请重新使用您的账号密码登录</li>
+            </ul>
+        </div>
+
+        <button onclick="clearCacheAndRedirect()">清除缓存并重新登录</button>
+        
+        <p class="success" id="successMsg">✓ 缓存已清除！正在跳转...</p>
+    </div>
+
+    <script>
+        function clearCacheAndRedirect() {
+            // 清除 localStorage
+            localStorage.clear();
+            
+            // 清除 sessionStorage
+            sessionStorage.clear();
+            
+            // 显示成功消息
+            document.getElementById('successMsg').style.display = 'block';
+            
+            // 1秒后跳转到登录页
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1000);
+        }
+
+        // 自动清除缓存（3秒倒计时）
+        let countdown = 3;
+        const autoMsg = document.createElement('p');
+        autoMsg.style.color = '#999';
+        autoMsg.style.fontSize = '14px';
+        autoMsg.style.marginTop = '20px';
+        autoMsg.innerHTML = `页面将在 <strong style="color: #667eea;">${countdown}</strong> 秒后自动清除缓存...`;
+        document.querySelector('.container').appendChild(autoMsg);
+
+        const timer = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                autoMsg.innerHTML = `页面将在 <strong style="color: #667eea;">${countdown}</strong> 秒后自动清除缓存...`;
+            } else {
+                clearInterval(timer);
+                clearCacheAndRedirect();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
