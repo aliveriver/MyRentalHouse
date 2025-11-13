@@ -211,7 +211,7 @@
         layout="prev, pager, next"
         @current-change="handleCurrentChange"
         :pager-count="5"
-        small
+        size="small"
       />
     </div>
 

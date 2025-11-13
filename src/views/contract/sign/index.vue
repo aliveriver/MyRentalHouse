@@ -129,6 +129,17 @@
         </div>
       </el-card>
     </div>
+
+    <!-- 费用说明与支付弹窗 -->
+    <PaymentDialog
+      v-model="paymentDialogVisible"
+      :property-price="houseInfo?.price || 0"
+      :service-fee="500"
+      :contract-id="pendingContractId"
+      contract-type="apply"
+      @confirm="handlePaymentConfirm"
+      @cancel="handlePaymentCancel"
+    />
   </div>
 </template>
 
@@ -139,6 +150,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Location, House } from '@element-plus/icons-vue'
 import { contractsApi, propertiesApi } from '@/api/index'
 import useStore from '@/store/index'
+import PaymentDialog from '@/components/PaymentDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -151,6 +163,9 @@ const uploadRef = ref(null)
 const houseInfo = ref(null)
 const contractFileList = ref([])
 const selectedContractFile = ref(null)
+const paymentDialogVisible = ref(false)
+const pendingContractId = ref(null)
+const pendingContractData = ref(null)
 
 // 默认房源图片
 const defaultHouseImage = 'https://img.zx123.cn/Resources/zx123cn/uploadfile/2020/0507/6bf211145acaf9038e4278f6de6a50eb.jpg'
@@ -333,10 +348,10 @@ const submitContract = async () => {
 
   try {
     await ElMessageBox.confirm(
-      '确认要提交此购房合同申请吗？请等待卖家审核。',
+      '确认要提交此购房合同申请吗？',
       '确认提交申请',
       {
-        confirmButtonText: '确认提交',
+        confirmButtonText: '确认',
         cancelButtonText: '取消',
         type: 'warning',
         dangerouslyUseHTMLString: false
@@ -350,6 +365,7 @@ const submitContract = async () => {
     
     if (!uploadResponse.success) {
       ElMessage.error(uploadResponse.errorMsg || '合同文件上传失败')
+      submitting.value = false
       return
     }
 
@@ -358,36 +374,47 @@ const submitContract = async () => {
 
     if (!contractFileUri) {
       ElMessage.error('获取文件URI失败，请重试')
+      submitting.value = false
       return
     }
 
-    // 提交合同申请
-    const applicationData = {
+    // 保存待提交的合同数据
+    pendingContractData.value = {
       propertyId: parseInt(contractForm.propertyid),
       contractFileUri: contractFileUri
     }
 
-    const response = await contractsApi.applyContract(applicationData)
+    submitting.value = false
 
-    if (response.success) {
-      ElMessage.success('合同申请提交成功！请等待卖家审核')
-
-      // 可以在这里添加跳转到合同详情页面的逻辑
-      setTimeout(() => {
-        goBack()
-      }, 1500)
-    } else {
-      ElMessage.error(response.errorMsg || '合同申请失败，请稍后再试')
-    }
+    // 显示费用说明与支付弹窗
+    paymentDialogVisible.value = true
   } catch (error) {
     if (error === 'cancel') {
       return // 用户取消操作
     }
     console.error('提交合同申请失败:', error)
     ElMessage.error('提交合同申请失败，请稍后再试')
-  } finally {
     submitting.value = false
   }
+}
+
+// 处理支付确认（用户点击支付按钮后）
+const handlePaymentConfirm = async (paymentParams) => {
+  // 将待提交的合同数据保存到 sessionStorage，供支付页面使用
+  if (pendingContractData.value) {
+    sessionStorage.setItem('pendingContractData', JSON.stringify(pendingContractData.value))
+  }
+  paymentDialogVisible.value = false
+}
+
+// 处理支付取消
+const handlePaymentCancel = async () => {
+  // 用户取消支付，必须支付服务费才能申请合同
+  ElMessage.warning('必须支付服务费才能申请合同')
+  // 清理待提交的合同数据
+  pendingContractData.value = null
+  // 关闭支付对话框
+  paymentDialogVisible.value = false
 }
 
 // 返回上一页

@@ -153,15 +153,39 @@
 
         <el-row :gutter="20">
           <el-col :span="24">
-            <el-form-item label="房源地址" prop="address">
-              <el-input
-                v-model="form.address"
-                placeholder="请输入房源地址"
-                :readonly="isFormFieldDisabled"
-              />
+            <el-form-item label="房源位置" prop="address">
+              <div class="address-input-group">
+                <el-input
+                  v-model="form.address"
+                  placeholder="请输入房源地址或点击选择位置"
+                  :readonly="isFormFieldDisabled"
+                  style="flex: 1; margin-right: 10px;"
+                />
+                <el-button
+                  type="primary"
+                  @click="showLocationPicker"
+                  :disabled="isFormFieldDisabled"
+                  :icon="Location"
+                >
+                  选择位置
+                </el-button>
+              </div>
+              <div class="location-info" v-if="form.longitude && form.latitude">
+                <el-text type="info" size="small">
+                  已选择位置：经度 {{ form.longitude }}，纬度 {{ form.latitude }}
+                  <span v-if="form.province"> | {{ form.province }} {{ form.city }} {{ form.district }}</span>
+                </el-text>
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
+        
+        <!-- 位置选择器组件 -->
+        <LocationPicker
+          v-model="locationPickerVisible"
+          :default-location="defaultLocation"
+          @confirm="handleLocationConfirm"
+        />
 
         <el-row :gutter="20">
           <el-col :span="12">
@@ -327,10 +351,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus, Close, Loading } from '@element-plus/icons-vue'
+import { Plus, Close, Loading, Location } from '@element-plus/icons-vue'
 import { propertiesApi, filesApi } from '@/api/index'
 import useStore from '@/store/index'
 import * as tags from "@/constant/tags"
+import LocationPicker from '@/components/LocationPicker.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -389,9 +414,23 @@ const form = ref({
   buildYear: '',                // 建筑年代
   elevatorRatio: '',            // 梯户比例
   address: '',                  // 房源地址（对应原来的location）
+  longitude: null,              // 经度
+  latitude: null,               // 纬度
+  province: '',                 // 省份
+  city: '',                     // 城市
+  district: '',                 // 区/县
+  street: '',                   // 街道/详细地址
   status: '待审核',             // 状态，新建房源默认待审核
   tagIds: [],
   images: [],                  // 图片
+})
+
+// 位置选择器相关
+const locationPickerVisible = ref(false)
+const defaultLocation = ref({
+  longitude: null,
+  latitude: null,
+  address: ''
 })
 
 // 表单验证规则
@@ -451,6 +490,12 @@ const initEmptyForm = () => {
     buildYear: '',
     elevatorRatio: '',
     address: '',
+    longitude: null,
+    latitude: null,
+    province: '',
+    city: '',
+    district: '',
+    street: '',
     status: '待审核', // 新建房源默认状态为"待审核"
     images: [],
     tagIds: [],
@@ -501,11 +546,26 @@ const loadHouseData = async (id) => {
         buildYear: propertyData.buildYear || '',
         elevatorRatio: propertyData.elevatorRatio || '',
         address: propertyData.address,
+        longitude: propertyData.longitude || null,
+        latitude: propertyData.latitude || null,
+        province: propertyData.province || '',
+        city: propertyData.city || '',
+        district: propertyData.district || '',
+        street: propertyData.street || '',
         status: propertyData.status,
         // 界面字段（模拟数据或从API字段转换）
         houseNumber: id,
         tagIds: propertyData.tagIds || [],
         images: images,
+      }
+      
+      // 设置默认位置（用于编辑时显示）
+      if (propertyData.longitude && propertyData.latitude) {
+        defaultLocation.value = {
+          longitude: propertyData.longitude,
+          latitude: propertyData.latitude,
+          address: propertyData.address || ''
+        }
       }
     } else {
       ElMessage.error('获取房源信息失败')
@@ -681,6 +741,12 @@ const prepareApiData = () => {
     buildYear: form.value.buildYear || '',
     elevatorRatio: form.value.elevatorRatio || '',
     address: address,
+    longitude: form.value.longitude || null,
+    latitude: form.value.latitude || null,
+    province: form.value.province || '',
+    city: form.value.city || '',
+    district: form.value.district || '',
+    street: form.value.street || '',
     publishdate: new Date().toISOString().split('T')[0], // 当前日期 YYYY-MM-DD
     status: form.value.status || '待审核', // 新建房源默认状态为"待审核"
     sellerid: store.getUserInfo?.userid || 1, // 从store获取当前用户ID
@@ -693,6 +759,35 @@ const prepareApiData = () => {
   }
 
   return apiData
+}
+
+// 显示位置选择器
+const showLocationPicker = () => {
+  locationPickerVisible.value = true
+}
+
+// 处理位置选择确认
+const handleLocationConfirm = (location) => {
+  form.value.longitude = location.longitude
+  form.value.latitude = location.latitude
+  form.value.address = location.address || form.value.address
+  form.value.province = location.province || ''
+  form.value.city = location.city || ''
+  form.value.district = location.district || ''
+  form.value.street = location.street || location.streetNumber || ''
+  
+  // 如果地址为空，使用结构化地址组合
+  if (!form.value.address && (location.province || location.city || location.district)) {
+    const addressParts = []
+    if (location.province) addressParts.push(location.province)
+    if (location.city && location.city !== location.province) addressParts.push(location.city)
+    if (location.district) addressParts.push(location.district)
+    if (location.street) addressParts.push(location.street)
+    if (location.streetNumber) addressParts.push(location.streetNumber)
+    form.value.address = addressParts.join('')
+  }
+  
+  ElMessage.success('位置选择成功')
 }
 
 // 取消
@@ -838,6 +933,16 @@ const handleBack = () => {
 
   .footer {
     text-align: right;
+  }
+  
+  .address-input-group {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .location-info {
+    margin-top: 8px;
   }
 }
 </style>

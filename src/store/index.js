@@ -1,4 +1,4 @@
-import { addDynamicRoutes, adminRoutes, userRoutes } from '@/routers/index';
+import { addDynamicRoutes, adminRoutes, userRoutes, baseRoutes } from '@/routers/index';
 import { filterRoutesByRole } from '@/utils/auth';
 import { removeToken } from '@/utils/jwt';
 import { isSellerRole, normalizeRole } from '@/utils/userRole';
@@ -73,22 +73,30 @@ export default defineStore({
 
         // 卖家和管理员相关角色
         if (isSellerOrAdmin) {
-          availableRoutes = [...adminRoutes];
+          availableRoutes = [...adminRoutes, ...baseRoutes];
           console.log(
-            '✅ 使用 adminRoutes（卖家/管理员），数量:',
-            adminRoutes.length
+            '✅ 使用 adminRoutes + baseRoutes（卖家/管理员），数量:',
+            adminRoutes.length + baseRoutes.length
           );
           console.log(
             'adminRoutes 详情:',
             adminRoutes.map((r) => ({ path: r.path, title: r.meta?.title }))
           );
+          console.log(
+            'baseRoutes 详情:',
+            baseRoutes.map((r) => ({ path: r.path, title: r.meta?.title }))
+          );
         } else {
           // 买家相关角色
-          availableRoutes = [...userRoutes];
-          console.log('✅ 使用 userRoutes（买家），数量:', userRoutes.length);
+          availableRoutes = [...userRoutes, ...baseRoutes];
+          console.log('✅ 使用 userRoutes + baseRoutes（买家），数量:', userRoutes.length + baseRoutes.length);
           console.log(
             'userRoutes 详情:',
             userRoutes.map((r) => ({ path: r.path, title: r.meta?.title }))
+          );
+          console.log(
+            'baseRoutes 详情:',
+            baseRoutes.map((r) => ({ path: r.path, title: r.meta?.title }))
           );
         }
 

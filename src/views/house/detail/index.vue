@@ -297,16 +297,28 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 费用说明与支付弹窗 -->
+    <PaymentDialog
+      v-model="paymentDialogVisible"
+      :property-price="houseData.totalPrice || 0"
+      :service-fee="calculateServiceFee"
+      :contract-id="pendingContractId"
+      contract-type="apply"
+      @confirm="handlePaymentConfirm"
+      @cancel="handlePaymentCancel"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Location, Guide, Phone, Star, StarFilled, Calendar, Document } from '@element-plus/icons-vue'
 import AMapLoader from "@amap/amap-jsapi-loader"
 import { propertiesApi, favoritesApi, viewingAppointmentsApi, filesApi, contractsApi, userManagementApi } from "@/api/index"
+import PaymentDialog from '@/components/PaymentDialog.vue'
 import { key_web_js } from "@/components/map/config.js"
 import { all, houseTags, orientationTags, afitmentTags, typeTags, buildYearTags, elevatorRatioTags, floorTags } from "@/constant/tags"
 
@@ -333,6 +345,11 @@ const houseData = ref({
   district: '朝阳区',
   location: '朝阳门',
   address: '朝阳区朝阳门南大街xx号',
+  longitude: null,  // 经度
+  latitude: null,   // 纬度
+  province: '',     // 省份
+  city: '',         // 城市
+  street: '',       // 街道
   tags: ['地铁房', '精装修', '南北通透', '满两年', '随时看房'],
   description: '此房为三居室，客厅朝南，主卧朝南，次卧朝北，南北通透，采光充足。房屋精装修，保养良好，拎包即可入住。小区环境优美，物业管理完善，交通便利，紧邻地铁站，生活配套齐全。业主诚心出售，价格可议。',
   images: [], // 图片列表，从后端获取
@@ -416,6 +433,9 @@ const contractFormRef = ref()
 const uploadRef = ref()
 const contractFileList = ref([])
 const selectedContractFile = ref(null)
+const paymentDialogVisible = ref(false)
+const pendingContractId = ref(null)
+const pendingContractData = ref(null)
 
 // 合同表单数据
 const contractForm = ref({
@@ -438,6 +458,13 @@ const contractRules = {
     }
   ]
 }
+
+// 计算服务费（0.5%房价，单位：元）
+// 注意：totalPrice 已经是元单位，不需要转换
+const calculateServiceFee = computed(() => {
+  const priceInYuan = houseData.value.totalPrice || 0 // 价格已经是元单位
+  return Math.round(priceInYuan * 0.005) // 0.5%服务费，四舍五入到整数
+})
 
 // 随机打乱数组的辅助函数
 const shuffleArray = (array) => {
@@ -551,67 +578,135 @@ const initMiniMap = async () => {
       extensions: "all"
     })
 
-    // 根据房源地址进行地理编码定位
-    const address = houseData.value.district || houseData.value.address
-    if (address) {
-      geocoder.getLocation(address, (status, result) => {
-        mapLoading.value = false
+    // 优先使用经纬度坐标定位（最准确）
+    if (houseData.value.longitude && houseData.value.latitude) {
+      mapLoading.value = false
+      const lnglat = [houseData.value.longitude, houseData.value.latitude]
+      miniMap.setCenter(lnglat)
+      miniMap.setZoom(15)
 
-        if (status === 'complete' && result.geocodes && result.geocodes.length > 0) {
-          const location = result.geocodes[0].location
-          const lnglat = [location.lng, location.lat]
-
-          // 设置地图中心点
-          miniMap.setCenter(lnglat)
-          miniMap.setZoom(15)
-
-          // 添加标记点
-          const marker = new AMap.Marker({
-            position: lnglat,
-            title: houseData.value.title,
-            anchor: 'bottom-center'
-          })
-          miniMap.add(marker)
-
-          // 创建信息窗口
-          const infoWindow = new AMap.InfoWindow({
-            content: `
-              <div style="padding: 10px; font-size: 14px;">
-                <strong>${houseData.value.title}</strong><br/>
-                <div style="margin-top: 5px; color: #666;">
-                  ${address}<br/>
-                  价格：${houseData.value.totalPrice}万元
-                </div>
-              </div>
-            `,
-            offset: new AMap.Pixel(0, -30)
-          })
-
-          // 点击标记显示信息窗口
-          marker.on('click', () => {
-            infoWindow.open(miniMap, lnglat)
-          })
-
-          console.log(`房源地址 "${address}" 定位成功:`, lnglat)
-        } else {
-          console.warn(`地址 "${address}" 地理编码失败:`, result)
-          ElMessage.warning('房源地址定位失败，显示默认位置')
-
-          // 地理编码失败时使用默认位置（北京朝阳门）
-          const defaultLocation = [116.418757, 39.917544]
-          const marker = new AMap.Marker({
-            position: defaultLocation,
-            title: houseData.value.title,
-            anchor: 'bottom-center'
-          })
-          miniMap.add(marker)
-        }
+      // 添加标记点
+      const marker = new AMap.Marker({
+        position: lnglat,
+        title: houseData.value.title,
+        anchor: 'bottom-center'
       })
+      miniMap.add(marker)
+
+      // 格式化价格（添加千分位分隔符）
+      const formatPrice = (price) => {
+        if (!price) return '价格面议'
+        return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+      }
+      
+      // 创建信息窗口
+      const infoWindow = new AMap.InfoWindow({
+        content: `
+          <div style="padding: 10px; font-size: 14px;">
+            <strong>${(houseData.value.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</strong><br/>
+            <div style="margin-top: 5px; color: #666;">
+              ${(houseData.value.address || houseData.value.district || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}<br/>
+              价格：<span style="color: #f56c6c; font-weight: 600;">${formatPrice(houseData.value.totalPrice)}元</span>
+            </div>
+          </div>
+        `,
+        offset: new AMap.Pixel(0, -30)
+      })
+
+      // 点击标记显示信息窗口
+      marker.on('click', () => {
+        infoWindow.open(miniMap, lnglat)
+      })
+
+      console.log(`使用坐标定位成功:`, lnglat)
+      return
+    }
+
+    // 如果没有坐标，使用地址进行地理编码定位
+    // 优先使用完整的地址信息，如果地址不完整则添加城市前缀提高定位准确性
+    const originalAddress = houseData.value.address || houseData.value.district || ''
+    if (originalAddress) {
+      // 格式化价格（添加千分位分隔符）
+      const formatPrice = (price) => {
+        if (!price) return '价格面议'
+        return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+      }
+      
+      // 创建标记和信息窗口的函数
+      const createMarkerAndInfoWindow = (lnglat, displayAddress) => {
+        // 设置地图中心点
+        miniMap.setCenter(lnglat)
+        miniMap.setZoom(15)
+
+        // 添加标记点
+        const marker = new AMap.Marker({
+          position: lnglat,
+          title: houseData.value.title,
+          anchor: 'bottom-center'
+        })
+        miniMap.add(marker)
+
+        // 创建信息窗口
+        const infoWindow = new AMap.InfoWindow({
+          content: `
+            <div style="padding: 10px; font-size: 14px;">
+              <strong>${(houseData.value.title || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</strong><br/>
+              <div style="margin-top: 5px; color: #666;">
+                ${(displayAddress || originalAddress).replace(/</g, '&lt;').replace(/>/g, '&gt;')}<br/>
+                价格：<span style="color: #f56c6c; font-weight: 600;">${formatPrice(houseData.value.totalPrice)}元</span>
+              </div>
+            </div>
+          `,
+          offset: new AMap.Pixel(0, -30)
+        })
+
+        // 点击标记显示信息窗口
+        marker.on('click', () => {
+          infoWindow.open(miniMap, lnglat)
+        })
+        
+        return { marker, lnglat }
+      }
+      
+      // 尝试地理编码的函数
+      const tryGeocode = (addressToTry, isRetry = false) => {
+        geocoder.getLocation(addressToTry, (status, result) => {
+          if (status === 'complete' && result.geocodes && result.geocodes.length > 0) {
+            const location = result.geocodes[0].location
+            if (location && location.lng && location.lat) {
+              const lnglat = [location.lng, location.lat]
+              mapLoading.value = false
+              createMarkerAndInfoWindow(lnglat, originalAddress)
+              console.log(`房源地址 "${addressToTry}" 定位成功:`, lnglat)
+              return
+            }
+          }
+          
+          // 如果第一次尝试失败，且地址中没有包含"市"或"省"，尝试添加"北京市"前缀
+          if (!isRetry && !originalAddress.includes('市') && !originalAddress.includes('省')) {
+            console.log(`地址 "${addressToTry}" 地理编码失败，尝试添加城市前缀...`)
+            tryGeocode('北京市' + originalAddress, true)
+          } else {
+            // 两次尝试都失败，使用默认位置
+            mapLoading.value = false
+            console.warn(`地址 "${addressToTry}" 地理编码失败，使用默认位置:`, result)
+            ElMessage.warning('房源地址定位失败，显示默认位置')
+            const defaultLocation = [116.418757, 39.917544]
+            createMarkerAndInfoWindow(defaultLocation, originalAddress)
+          }
+        })
+      }
+      
+      // 开始地理编码
+      tryGeocode(originalAddress)
     } else {
+      mapLoading.value = false
       console.warn('房源地址信息为空，使用默认位置')
 
       // 没有地址信息时使用默认位置
       const defaultLocation = [116.418757, 39.917544]
+      miniMap.setCenter(defaultLocation)
+      miniMap.setZoom(15)
       const marker = new AMap.Marker({
         position: defaultLocation,
         title: houseData.value.title,
@@ -621,6 +716,7 @@ const initMiniMap = async () => {
     }
 
   } catch (error) {
+    mapLoading.value = false
     console.error('地图加载失败:', error)
     ElMessage.error('地图加载失败')
   }
@@ -633,9 +729,17 @@ const getTargetHouseDetail = () => {
       const data = response.data;
       houseData.value.sellerid = data.sellerid
       houseData.value.id = data.propertyid
-      houseData.value.district = data.address
+      houseData.value.address = data.address // 完整地址
+      houseData.value.district = data.address || data.district || '' // 用于显示的地址
       houseData.value.title = data.title
       houseData.value.totalPrice = data.price
+      // 定位信息
+      houseData.value.longitude = data.longitude
+      houseData.value.latitude = data.latitude
+      houseData.value.province = data.province
+      houseData.value.city = data.city
+      houseData.value.district = data.district || data.address
+      houseData.value.street = data.street
       houseData.value.area = data.area + "m²"
       houseData.value.unitPrice = (data.price / data.area).toFixed(2)
       houseData.value.rooms = data.layout
@@ -939,6 +1043,7 @@ const submitContractApplication = async () => {
     
     if (!uploadResponse.success) {
       ElMessage.error(uploadResponse.errorMsg || '合同文件上传失败')
+      contractSubmitting.value = false
       return
     }
 
@@ -947,32 +1052,49 @@ const submitContractApplication = async () => {
 
     if (!contractFileUri) {
       ElMessage.error('获取文件URI失败，请重试')
+      contractSubmitting.value = false
       return
     }
 
-    // 提交合同申请
-    const applicationData = {
+    // 保存待提交的合同数据
+    pendingContractData.value = {
       propertyId: houseData.value.id,
       contractFileUri: contractFileUri
     }
 
-    const response = await contractsApi.applyContract(applicationData)
+    contractSubmitting.value = false
 
-    if (response.success) {
-      ElMessage.success('合同申请提交成功！请等待卖家审核')
-      contractDialogVisible.value = false
-      contractFileList.value = []
-      selectedContractFile.value = null
-      contractForm.value.contractFile = null
-    } else {
-      ElMessage.error(response.errorMsg || '合同申请失败，请稍后再试')
-    }
+    // 关闭合同申请对话框
+    contractDialogVisible.value = false
+
+    // 显示费用说明与支付弹窗
+    paymentDialogVisible.value = true
   } catch (error) {
     console.error('合同申请失败:', error)
     ElMessage.error('合同申请失败，请稍后再试')
-  } finally {
     contractSubmitting.value = false
   }
+}
+
+// 处理支付确认（用户点击支付按钮后）
+const handlePaymentConfirm = async (paymentParams) => {
+  // 将待提交的合同数据保存到 sessionStorage，供支付页面使用
+  if (pendingContractData.value) {
+    sessionStorage.setItem('pendingContractData', JSON.stringify(pendingContractData.value))
+  }
+  paymentDialogVisible.value = false
+}
+
+// 处理支付取消
+const handlePaymentCancel = async () => {
+  // 用户取消支付，必须支付服务费才能申请合同
+  ElMessage.warning('必须支付服务费才能申请合同')
+  // 清理待提交的合同数据
+  pendingContractData.value = null
+  // 关闭支付对话框
+  paymentDialogVisible.value = false
+  // 可以选择重新打开合同申请对话框
+  contractDialogVisible.value = true
 }
 
 onMounted(() => {

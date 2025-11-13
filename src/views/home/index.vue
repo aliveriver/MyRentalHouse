@@ -122,14 +122,8 @@
               <span class="data-value">{{ appointmentStats.approved }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">已拒绝预约</span>
-              <span class="data-value">{{ appointmentStats.rejected }} 份</span>
-            </div>
-            <div class="data-item">
-              <span class="data-label">已完成预约</span>
-              <span class="data-value"
-                >{{ appointmentStats.completed }} 份</span
-              >
+              <span class="data-label">已取消预约</span>
+              <span class="data-value">{{ appointmentStats.cancelled }} 份</span>
             </div>
             <div class="data-item">
               <span class="data-label">本月新增</span>
@@ -190,12 +184,12 @@
               <span class="data-value">{{ contractStats.signed }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">执行中</span>
-              <span class="data-value">{{ contractStats.active }} 份</span>
+              <span class="data-label">待审核</span>
+              <span class="data-value">{{ contractStats.pending }} 份</span>
             </div>
             <div class="data-item">
-              <span class="data-label">已完成</span>
-              <span class="data-value">{{ contractStats.completed }} 份</span>
+              <span class="data-label">已取消</span>
+              <span class="data-value">{{ contractStats.cancelled }} 份</span>
             </div>
             <div class="data-item">
               <span class="data-label">本月新增</span>
@@ -208,33 +202,30 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <el-icon><Star /></el-icon>
-              <span>收藏统计信息</span>
+              <el-icon><User /></el-icon>
+              <span>活跃用户统计</span>
             </div>
           </template>
           <div class="data-list">
             <div class="data-item">
-              <span class="data-label">总收藏数</span>
-              <span class="data-value">{{ favoriteStats.total }} 次</span>
+              <span class="data-label">总活跃用户</span>
+              <span class="data-value">{{ activeUserStats.totalActiveUsers }} 人</span>
             </div>
             <div class="data-item">
-              <span class="data-label">今日新增</span>
-              <span class="data-value">{{ favoriteStats.today }} 次</span>
+              <span class="data-label">今日活跃</span>
+              <span class="data-value">{{ activeUserStats.todayActiveUsers }} 人</span>
             </div>
             <div class="data-item">
-              <span class="data-label">本周新增</span>
-              <span class="data-value">{{ favoriteStats.thisWeek }} 次</span>
+              <span class="data-label">本周活跃</span>
+              <span class="data-value">{{ activeUserStats.thisWeekActiveUsers }} 人</span>
             </div>
             <div class="data-item">
-              <span class="data-label">本月新增</span>
-              <span class="data-value">{{ favoriteStats.thisMonth }} 次</span>
+              <span class="data-label">本月活跃</span>
+              <span class="data-value">{{ activeUserStats.thisMonthActiveUsers }} 人</span>
             </div>
             <div class="data-item">
-              <span class="data-label">热门房源</span>
-              <span
-                class="data-value"
-                >{{ favoriteStats.hotProperty || '暂无' }}</span
-              >
+              <span class="data-label">说明</span>
+              <span class="data-value" style="font-size: 12px; color: #999;">基于用户操作统计</span>
             </div>
           </div>
         </el-card>
@@ -284,14 +275,7 @@ import {
   Document,
   Star
 } from '@element-plus/icons-vue'
-import {
-  dashboardApi,
-  propertiesApi,
-  viewingAppointmentsApi,
-  contractsApi,
-  favoritesApi,
-  usersApi
-} from '@/api/index'
+import { dashboardApi } from '@/api/index'
 import { ElMessage } from 'element-plus'
 import useStore from '@/store/index'
 import { useRouter } from 'vue-router'
@@ -315,7 +299,7 @@ const detailStatsLoading = ref(false)
 const chartLoading = ref(false)
 
 // 登录信息
-const loginIP = ref('192.168.1.100')
+const loginIP = ref('获取中...')
 
 // 总体统计数据
 const statsData = ref({
@@ -329,8 +313,7 @@ const statsData = ref({
 const appointmentStats = ref({
   pending: 0,
   approved: 0,
-  rejected: 0,
-  completed: 0,
+  cancelled: 0,
   thisMonth: 0
 })
 
@@ -339,14 +322,16 @@ const propertyStats = ref({
   available: 0,
   sold: 0,
   inactive: 0,
+  pending: 0,
+  rejected: 0,
   thisMonth: 0
 })
 
 const contractStats = ref({
   total: 0,
+  pending: 0,
   signed: 0,
-  active: 0,
-  completed: 0,
+  cancelled: 0,
   thisMonth: 0
 })
 
@@ -356,6 +341,13 @@ const favoriteStats = ref({
   thisWeek: 0,
   thisMonth: 0,
   hotProperty: ''
+})
+
+const activeUserStats = ref({
+  totalActiveUsers: 0,
+  todayActiveUsers: 0,
+  thisWeekActiveUsers: 0,
+  thisMonthActiveUsers: 0
 })
 
 // 月度统计数据
@@ -386,187 +378,116 @@ const formatDate = (date) => {
   })
 }
 
-// 获取总体统计数据
-const loadStatsData = async () => {
+// 加载所有统计数据
+const loadAllStats = async () => {
   statsLoading.value = true
+  detailStatsLoading.value = true
+  chartLoading.value = true
+  
   try {
-    // 获取用户总数 - 仅管理员可访问
-    if (userRole.value === '管理员') {
-      try {
-        const usersResponse = await usersApi.getAllUsers()
-        if (usersResponse.success) {
-          statsData.value.totalUsers = usersResponse.data.length
+    // 仅管理员可访问dashboard API
+    if (userRole.value !== '管理员') {
+      ElMessage.warning('仅管理员可访问数据概览')
+      return
+    }
+
+    // 调用dashboard API获取所有统计数据
+    const response = await dashboardApi.getDashboardStats()
+    
+    if (response.success && response.data) {
+      const data = response.data
+      
+      // 1. 总体统计数据
+      statsData.value = {
+        totalUsers: data.totalUsers || 0,
+        totalProperties: data.totalProperties || 0,
+        totalAppointments: data.totalAppointments || 0,
+        totalContracts: data.totalContracts || 0
+      }
+
+      // 2. 房源统计
+      if (data.propertyStats) {
+        propertyStats.value = {
+          total: data.propertyStats.total || 0,
+          available: data.propertyStats.available || 0,
+          sold: data.propertyStats.sold || 0,
+          inactive: data.propertyStats.inactive || 0,
+          pending: data.propertyStats.pending || 0,
+          rejected: data.propertyStats.rejected || 0,
+          thisMonth: data.propertyStats.thisMonth || 0
         }
-      } catch (error) {
-        console.warn('获取用户总数失败:', error.message)
-        statsData.value.totalUsers = 0
       }
+
+      // 3. 预约统计
+      if (data.appointmentStats) {
+        appointmentStats.value = {
+          pending: data.appointmentStats.pending || 0,
+          approved: data.appointmentStats.approved || 0,
+          cancelled: data.appointmentStats.cancelled || 0,
+          thisMonth: data.appointmentStats.thisMonth || 0
+        }
+      }
+
+      // 4. 合同统计
+      if (data.contractStats) {
+        contractStats.value = {
+          total: data.contractStats.total || 0,
+          pending: data.contractStats.pending || 0,
+          signed: data.contractStats.signed || 0,
+          cancelled: data.contractStats.cancelled || 0,
+          thisMonth: data.contractStats.thisMonth || 0
+        }
+      }
+
+      // 5. 收藏统计
+      if (data.favoriteStats) {
+        favoriteStats.value = {
+          total: data.favoriteStats.total || 0,
+          today: data.favoriteStats.today || 0,
+          thisWeek: data.favoriteStats.thisWeek || 0,
+          thisMonth: data.favoriteStats.thisMonth || 0,
+          hotProperty: data.favoriteStats.hotProperty || '暂无'
+        }
+      }
+
+      // 6. 活跃用户统计
+      if (data.activeUserStats) {
+        activeUserStats.value = {
+          totalActiveUsers: data.activeUserStats.totalActiveUsers || 0,
+          todayActiveUsers: data.activeUserStats.todayActiveUsers || 0,
+          thisWeekActiveUsers: data.activeUserStats.thisWeekActiveUsers || 0,
+          thisMonthActiveUsers: data.activeUserStats.thisMonthActiveUsers || 0
+        }
+      }
+
+      // 7. 月度统计数据
+      if (data.monthlyStats) {
+        monthlyData.value = {
+          days: data.monthlyStats.days || [],
+          currentMonth: data.monthlyStats.currentMonth || [],
+          lastMonth: data.monthlyStats.lastMonth || []
+        }
+      }
+
+      // 8. 客户端IP地址
+      if (data.clientIP) {
+        loginIP.value = data.clientIP
+      }
+
+      // 加载完成后初始化图表
+      setTimeout(() => {
+        initChart()
+      }, 100)
     } else {
-      // 非管理员显示占位符
-      statsData.value.totalUsers = '-'
+      ElMessage.error(response.errorMsg || '获取统计数据失败')
     }
-
-    // 获取房源总数
-    try {
-      const propertiesResponse = await propertiesApi.getAllProperties()
-      if (propertiesResponse.success) {
-        statsData.value.totalProperties = propertiesResponse.data.length
-      }
-    } catch (error) {
-      console.warn('获取房源总数失败:', error.message)
-      statsData.value.totalProperties = 0
-    }
-
-    // 获取预约总数
-    try {
-      const appointmentsResponse = await viewingAppointmentsApi.getAllAppointments()
-      if (appointmentsResponse.success) {
-        statsData.value.totalAppointments = appointmentsResponse.data.length
-      }
-    } catch (error) {
-      console.warn('获取预约总数失败:', error.message)
-      statsData.value.totalAppointments = 0
-    }
-
-    // 获取合同总数
-    try {
-      const contractsResponse = await contractsApi.getAllContracts()
-      if (contractsResponse.success) {
-        statsData.value.totalContracts = contractsResponse.data.length
-      }
-    } catch (error) {
-      console.warn('获取合同总数失败:', error.message)
-      statsData.value.totalContracts = 0
-    }
-
   } catch (error) {
     console.error('加载统计数据失败:', error)
-    // 不再显示错误提示，避免打扰用户
+    ElMessage.error('加载统计数据失败: ' + (error.message || '未知错误'))
   } finally {
     statsLoading.value = false
-  }
-}
-
-// 获取详细统计数据
-const loadDetailStats = async () => {
-  detailStatsLoading.value = true
-  try {
-    // 预约统计
-    try {
-      const appointmentsResponse = await viewingAppointmentsApi.getAllAppointments()
-      if (appointmentsResponse.success) {
-        const appointments = appointmentsResponse.data
-        appointmentStats.value = {
-          pending: appointments.filter(a => a.status === 'PENDING').length,
-          approved: appointments.filter(a => a.status === 'APPROVED').length,
-          rejected: appointments.filter(a => a.status === 'REJECTED').length,
-          completed: appointments.filter(a => a.status === 'COMPLETED').length,
-          thisMonth: appointments.filter(a => {
-            const appointmentDate = new Date(a.appointmenttime)
-            const now = new Date()
-            return appointmentDate.getFullYear() === now.getFullYear() &&
-                   appointmentDate.getMonth() === now.getMonth()
-          }).length
-        }
-      }
-    } catch (error) {
-      console.warn('获取预约统计失败:', error.message)
-      appointmentStats.value = {
-        pending: 0,
-        approved: 0,
-        rejected: 0,
-        completed: 0,
-        thisMonth: 0
-      }
-    }
-
-    // 房源统计（模拟数据，实际需要后端支持状态字段）
-    try {
-      const propertiesResponse = await propertiesApi.getAllProperties()
-      if (propertiesResponse.success) {
-        const properties = propertiesResponse.data
-        propertyStats.value = {
-          total: properties.length,
-          available: Math.floor(properties.length * 0.8), // 假设80%在售
-          sold: Math.floor(properties.length * 0.15), // 假设15%已售
-          inactive: Math.floor(properties.length * 0.05), // 假设5%下架
-          thisMonth: Math.floor(properties.length * 0.1) // 假设10%是本月新增
-        }
-      }
-    } catch (error) {
-      console.warn('获取房源统计失败:', error.message)
-      propertyStats.value = {
-        total: 0,
-        available: 0,
-        sold: 0,
-        inactive: 0,
-        thisMonth: 0
-      }
-    }
-
-    // 合同统计（模拟数据，实际需要后端支持状态字段）
-    try {
-      const contractsResponse = await contractsApi.getAllContracts()
-      if (contractsResponse.success) {
-        const contracts = contractsResponse.data
-        contractStats.value = {
-          total: contracts.length,
-          signed: Math.floor(contracts.length * 0.6),
-          active: Math.floor(contracts.length * 0.3),
-          completed: Math.floor(contracts.length * 0.1),
-          thisMonth: Math.floor(contracts.length * 0.2)
-        }
-      }
-    } catch (error) {
-      console.warn('获取合同统计失败:', error.message)
-      contractStats.value = {
-        total: 0,
-        signed: 0,
-        active: 0,
-        completed: 0,
-        thisMonth: 0
-      }
-    }
-
-    // 收藏统计（模拟数据）
-    favoriteStats.value = {
-      total: Math.floor(Math.random() * 1000) + 500,
-      today: Math.floor(Math.random() * 20) + 5,
-      thisWeek: Math.floor(Math.random() * 100) + 30,
-      thisMonth: Math.floor(Math.random() * 300) + 100,
-      hotProperty: '朝阳门精装修三居室'
-    }
-
-  } catch (error) {
-    console.error('加载详细统计数据失败:', error)
-    // 不显示错误提示，避免打扰用户
-  } finally {
     detailStatsLoading.value = false
-  }
-}
-
-// 获取月度统计数据（模拟数据）
-const loadMonthlyData = () => {
-  // 生成过去30天的数据
-  const days = []
-  const currentMonth = []
-  const lastMonth = []
-
-  for (let i = 30; i >= 0; i--) {
-    const date = new Date()
-    date.setDate(date.getDate() - i)
-    days.push(date.getDate().toString().padStart(2, '0'))
-
-    // 模拟当月数据（预约数量）
-    currentMonth.push(Math.floor(Math.random() * 30) + 10)
-    // 模拟上月数据
-    lastMonth.push(Math.floor(Math.random() * 25) + 8)
-  }
-
-  monthlyData.value = {
-    days: days.slice(-7), // 只显示最近7天
-    currentMonth: currentMonth.slice(-7),
-    lastMonth: lastMonth.slice(-7)
+    chartLoading.value = false
   }
 }
 
@@ -574,9 +495,14 @@ const loadMonthlyData = () => {
 const initChart = () => {
   if (!chartRef.value) return
 
-  chartLoading.value = true
-
   const chart = echarts.init(chartRef.value)
+
+  // 计算Y轴最大值
+  const currentMonthData = monthlyData.value.currentMonth || []
+  const lastMonthData = monthlyData.value.lastMonth || []
+  const allData = [...currentMonthData, ...lastMonthData]
+  const maxValue = allData.length > 0 ? Math.max(...allData, 10) : 10
+  const yMax = Math.ceil(maxValue / 10) * 10 || 50
 
   const option = {
     tooltip: {
@@ -593,7 +519,7 @@ const initChart = () => {
     },
     xAxis: {
       type: 'category',
-      data: monthlyData.value.days,
+      data: monthlyData.value.days || [],
       axisLine: {
         lineStyle: {
           color: '#e6e6e6'
@@ -606,8 +532,8 @@ const initChart = () => {
     yAxis: {
       type: 'value',
       min: 0,
-      max: 50,
-      interval: 10,
+      max: yMax,
+      interval: Math.ceil(yMax / 5),
       axisLine: {
         show: false
       },
@@ -628,7 +554,7 @@ const initChart = () => {
       {
         name: '本月',
         type: 'line',
-        data: monthlyData.value.currentMonth,
+        data: monthlyData.value.currentMonth || [],
         smooth: true,
         lineStyle: {
           color: '#1890ff',
@@ -643,7 +569,7 @@ const initChart = () => {
       {
         name: '上月',
         type: 'line',
-        data: monthlyData.value.lastMonth,
+        data: monthlyData.value.lastMonth || [],
         smooth: true,
         lineStyle: {
           color: '#52c41a',
@@ -659,7 +585,6 @@ const initChart = () => {
   }
 
   chart.setOption(option)
-  chartLoading.value = false
 
   // 响应式处理
   window.addEventListener('resize', () => {
@@ -678,14 +603,8 @@ onMounted(async () => {
     return
   }
   
-  await loadStatsData()
-  await loadDetailStats()
-  loadMonthlyData()
-
-  // 确保DOM更新后再初始化图表
-  setTimeout(() => {
-    initChart()
-  }, 100)
+  // 加载所有统计数据
+  await loadAllStats()
 })
 </script>
 

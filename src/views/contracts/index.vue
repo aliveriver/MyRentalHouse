@@ -44,6 +44,7 @@
             <span class="title">合同列表</span>
             <div class="header-actions">
               <el-button
+                v-if="isAdmin"
                 type="danger"
                 :disabled="selectedContracts.length === 0"
                 @click="handleBatchDelete"
@@ -128,6 +129,16 @@
                   查看
                 </el-button>
                 <el-button
+                  v-if="scope.row.contractstatus === '待审核'"
+                  type="success"
+                  size="small"
+                  @click="signContract(scope.row)"
+                  :loading="scope.row.signing"
+                >
+                  <el-icon><EditPen /></el-icon>
+                  签订
+                </el-button>
+                <el-button
                   type="warning"
                   size="small"
                   @click="editContract(scope.row)"
@@ -137,6 +148,7 @@
                   编辑
                 </el-button>
                 <el-button
+                  v-if="isAdmin"
                   type="danger"
                   size="small"
                   @click="deleteContract(scope.row)"
@@ -164,7 +176,7 @@
             layout="prev, pager, next"
             @current-change="handlePageChange"
             :pager-count="5"
-            small
+            size="small"
           />
         </div>
       </el-card>
@@ -367,18 +379,34 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 费用说明与支付弹窗 -->
+    <PaymentDialog
+      v-model="paymentDialogVisible"
+      :property-price="pendingContract?.housePrice || 0"
+      :service-fee="calculateServiceFee"
+      :contract-id="pendingContract?.contractid"
+      contract-type="sign"
+      @confirm="handlePaymentConfirm"
+      @cancel="handlePaymentCancel"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Refresh, Search, RefreshLeft, Delete, View, Edit, Download, Document, Loading
+  Refresh, Search, RefreshLeft, Delete, View, Edit, Download, Document, Loading, EditPen
 } from '@element-plus/icons-vue'
 import { contractsApi, propertiesApi, usersApi } from '../../api/index'
 import filesApi from '../../api/files'
+import PaymentDialog from '@/components/PaymentDialog.vue'
+import { isBuyerRole as checkBuyerRole, isAdminRole } from '@/utils/userRole'
+import useStore from '@/store/index'
 
+const store = useStore()
 const loading = ref(false)
 const updating = ref(false)
 const contractsList = ref([])
@@ -389,6 +417,20 @@ const currentContract = ref(null)
 const editFormRef = ref(null)
 const contractFileLoading = ref(false)
 const contractFileContent = ref('')
+const paymentDialogVisible = ref(false)
+const pendingContract = ref(null)
+
+// 检查是否为买家角色
+const isBuyerRole = computed(() => {
+  const userRole = store.userInfo?.role || ''
+  return checkBuyerRole(userRole)
+})
+
+// 检查是否为管理员角色
+const isAdmin = computed(() => {
+  const userRole = store.userInfo?.role || ''
+  return isAdminRole(userRole)
+})
 
 // 搜索表单
 const searchForm = reactive({
@@ -422,6 +464,12 @@ const editRules = {
   ]
 }
 
+// 计算服务费（0.5%房价，单位：元）
+const calculateServiceFee = computed(() => {
+  const priceInYuan = pendingContract.value?.housePrice || 0 // 价格已经是元单位
+  return Math.round(priceInYuan * 0.005) // 0.5%服务费，四舍五入到整数
+})
+
 // 过滤后的合同列表
 const filteredContracts = computed(() => {
   let filtered = [...contractsList.value]
@@ -454,8 +502,30 @@ const paginatedContracts = computed(() => {
   return result
 })
 
+const route = useRoute()
+const router = useRouter()
+
 onMounted(() => {
   loadContracts()
+  
+  // 检查是否从支付页面返回
+  if (route.query.fromPayment === 'true') {
+    // 延迟一下确保页面已加载
+    setTimeout(() => {
+      loadContracts()
+      // 清除查询参数
+      router.replace({ path: route.path, query: {} })
+    }, 100)
+  }
+})
+
+// 监听路由变化，当从支付页面返回时刷新合同列表
+watch(() => route.query.fromPayment, (newVal) => {
+  if (newVal === 'true') {
+    loadContracts()
+    // 清除查询参数
+    router.replace({ path: route.path, query: {} })
+  }
 })
 
 // 加载合同列表
@@ -668,6 +738,81 @@ const updateContract = async () => {
     ElMessage.error('更新合同失败，请稍后再试')
   } finally {
     updating.value = false
+  }
+}
+
+// 签订合同
+const signContract = async (contract) => {
+  try {
+    await ElMessageBox.confirm(
+      '确认要签订此合同吗？签订后合同将正式生效。',
+      '确认签订',
+      {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 保存待签订的合同信息
+    pendingContract.value = contract
+
+    // 显示费用说明与支付弹窗
+    paymentDialogVisible.value = true
+  } catch (error) {
+    if (error === 'cancel') {
+      return // 用户取消操作
+    }
+  }
+}
+
+// 处理支付确认（用户点击支付按钮后）
+const handlePaymentConfirm = async (paymentParams) => {
+  // 支付页面会处理实际的支付逻辑
+  paymentDialogVisible.value = false
+}
+
+// 处理支付取消
+const handlePaymentCancel = async () => {
+  // 用户取消支付，可以选择是否继续签订合同
+  try {
+    await ElMessageBox.confirm(
+      '取消支付后，合同将不会签订。是否继续签订合同？',
+      '确认操作',
+      {
+        confirmButtonText: '继续签订',
+        cancelButtonText: '取消签订',
+        type: 'warning'
+      }
+    )
+
+    // 用户选择继续签订，直接签订合同（不支付）
+    if (pendingContract.value) {
+      const contract = pendingContract.value
+      contract.signing = true
+
+      try {
+        const response = await contractsApi.signContract(contract.contractid)
+
+        if (response.success) {
+          ElMessage.success('合同签订成功')
+          loadContracts()
+        } else {
+          ElMessage.error(response.errorMsg || '合同签订失败')
+        }
+      } catch (error) {
+        console.error('签订合同失败:', error)
+        ElMessage.error('签订合同失败，请稍后再试')
+      } finally {
+        contract.signing = false
+        pendingContract.value = null
+      }
+    }
+  } catch (error) {
+    if (error === 'cancel') {
+      // 用户取消签订
+      pendingContract.value = null
+    }
   }
 }
 

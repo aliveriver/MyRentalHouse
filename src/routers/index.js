@@ -57,15 +57,6 @@ export const adminRoutes = [
     component: () => import('../views/contracts/index.vue'),
     meta: { title: '合同管理', icon: 'Document', roles: ['卖家', '管理员'] },
   },
-  {
-    path: 'person',
-    component: () => import('../views/person/index.vue'),
-    meta: {
-      title: '个人中心',
-      icon: 'Setting',
-      roles: ['卖家', '管理员', '买家'],
-    },
-  },
 ];
 
 // 普通用户路由
@@ -86,9 +77,18 @@ export const userRoutes = [
     meta: { title: '地图找房', icon: 'LocationInformation', roles: ['买家'] },
   },
   {
-    path: 'person',
-    component: () => import('../views/person/index.vue'),
-    meta: { title: '个人中心', icon: 'Setting', roles: ['买家'] },
+    path: 'bills',
+    component: () => import('../views/bills/index.vue'),
+    meta: { title: '我的账单', icon: 'Money', roles: ['买家'] },
+  },
+  {
+    path: 'bills/pay',
+    component: () => import('../views/bills/pay.vue'),
+    meta: {
+      title: '账单支付',
+      roles: ['买家'],
+      isHidden: true,
+    },
   },
   {
     path: 'contract/sign/:propertyId',
@@ -104,6 +104,15 @@ export const userRoutes = [
 
 // 基础路由（所有用户都可以访问）
 export const baseRoutes = [
+  {
+    path: 'payment',
+    component: () => import('../views/payment/index.vue'),
+    meta: {
+      title: '支付页面',
+      isHidden: true,
+      roles: ['卖家', '管理员', '买家'],
+    },
+  },
   {
     path: 'person',
     component: () => import('../views/person/index.vue'),
