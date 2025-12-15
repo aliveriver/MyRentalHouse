@@ -99,9 +99,9 @@
     <div class="footer">
       <div class="header-actions" v-if="!isView">
         <el-button @click="handleCancel" :disabled="loading">取消</el-button>
-        <el-button @click="handleSaveDraft" :disabled="loading">
+        <!-- <el-button @click="handleSaveDraft" :disabled="loading">
           保存草稿
-        </el-button>
+        </el-button> -->
         <el-button type="primary" @click="handlePublish" :loading="loading">
           发布资讯
         </el-button>

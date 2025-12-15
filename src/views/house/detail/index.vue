@@ -1,7 +1,10 @@
 <template>
   <div class="house-detail-container">
     <!-- 房源图片轮播 - 只在有图片时显示 -->
-    <div class="house-gallery" v-if="houseData.images && houseData.images.length > 0">
+    <div
+      class="house-gallery"
+      v-if="houseData.images && houseData.images.length > 0"
+    >
       <el-carousel :interval="5000" type="card" height="400px">
         <el-carousel-item
           v-for="(image, index) in houseData.images"
@@ -132,7 +135,7 @@
         ></div>
 
         <!-- 周边配套 -->
-        <div class="surrounding-facilities">
+        <!-- <div class="surrounding-facilities">
           <h4>周边配套</h4>
           <div class="facilities-grid">
             <div
@@ -153,7 +156,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </div> -->
       </div>
     </div>
 
@@ -161,18 +164,34 @@
     <div class="contact-section">
       <div class="seller-info">
         <div class="seller-avatar">
-          <el-avatar :size="60" :src="sellerInfo.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
+          <el-avatar
+            :size="60"
+            :src="sellerInfo.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'"
+          />
         </div>
         <div class="seller-details">
-          <div class="seller-name">卖家ID：{{ sellerInfo.userid || houseData.sellerid || '未知' }}</div>
-          <div class="seller-username">用户名：{{ sellerInfo.username || '未知' }}</div>
-          <div class="seller-phone" v-if="sellerInfo.phonenumber || sellerInfo.phoneNumber">
+          <div class="seller-name">
+            卖家ID：{{ sellerInfo.userid || houseData.sellerid || '未知' }}
+          </div>
+          <div class="seller-username">
+            用户名：{{ sellerInfo.username || '未知' }}
+          </div>
+          <div
+            class="seller-phone"
+            v-if="sellerInfo.phonenumber || sellerInfo.phoneNumber"
+          >
             <el-icon><Phone /></el-icon>
             联系电话：{{ sellerInfo.phonenumber || sellerInfo.phoneNumber }}
           </div>
         </div>
         <div class="contact-actions">
-          <el-button size="large" @click="viewSellerPhone" v-if="sellerInfo.phonenumber || sellerInfo.phoneNumber"> 查看电话 </el-button>
+          <el-button
+            size="large"
+            @click="viewSellerPhone"
+            v-if="sellerInfo.phonenumber || sellerInfo.phoneNumber"
+          >
+            查看电话
+          </el-button>
         </div>
       </div>
     </div>
@@ -482,13 +501,13 @@ const getHouseList = () => {
     if (response.success) {
       // 排除当前正在查看的房源
       let availableHouses = response.data.filter(item => item.propertyid !== currentHouseId)
-      
+
       // 随机打乱数组
       availableHouses = shuffleArray(availableHouses)
-      
+
       // 取前3个
       const data = availableHouses.slice(0, 3)
-      
+
       recommendedHouses.value = data.map(item => {
         // 获取第一张图片，如果没有则使用默认图片
         let imageUrl = 'https://www.dmoe.cc/random.php?id=' + Math.random()
@@ -598,7 +617,7 @@ const initMiniMap = async () => {
         if (!price) return '价格面议'
         return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
       }
-      
+
       // 创建信息窗口
       const infoWindow = new AMap.InfoWindow({
         content: `
@@ -631,7 +650,7 @@ const initMiniMap = async () => {
         if (!price) return '价格面议'
         return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
       }
-      
+
       // 创建标记和信息窗口的函数
       const createMarkerAndInfoWindow = (lnglat, displayAddress) => {
         // 设置地图中心点
@@ -664,10 +683,10 @@ const initMiniMap = async () => {
         marker.on('click', () => {
           infoWindow.open(miniMap, lnglat)
         })
-        
+
         return { marker, lnglat }
       }
-      
+
       // 尝试地理编码的函数
       const tryGeocode = (addressToTry, isRetry = false) => {
         geocoder.getLocation(addressToTry, (status, result) => {
@@ -681,7 +700,7 @@ const initMiniMap = async () => {
               return
             }
           }
-          
+
           // 如果第一次尝试失败，且地址中没有包含"市"或"省"，尝试添加"北京市"前缀
           if (!isRetry && !originalAddress.includes('市') && !originalAddress.includes('省')) {
             console.log(`地址 "${addressToTry}" 地理编码失败，尝试添加城市前缀...`)
@@ -696,7 +715,7 @@ const initMiniMap = async () => {
           }
         })
       }
-      
+
       // 开始地理编码
       tryGeocode(originalAddress)
     } else {
@@ -752,28 +771,28 @@ const getTargetHouseDetail = () => {
         })[0]
         return id ? orientationTags.find(h => h.id === id).value : '未知方向'
       })();
-      
+
       houseData.value.floor = data.floor || (() => {
         const id = data.tagIds?.filter(t => {
           return floorTags.some(h => h.id === t)
         })[0]
         return id ? floorTags.find(h => h.id === id).value : '未知楼层'
       })();
-      
+
       houseData.value.decoration = data.decoration || (() => {
         const id = data.tagIds?.filter(t => {
           return afitmentTags.some(h => h.id === t)
         })[0]
         return id ? afitmentTags.find(h => h.id === id).value : '未知装修'
       })();
-      
+
       houseData.value.buildingType = data.buildingType || (() => {
         const id = data.tagIds?.filter(t => {
           return typeTags.some(h => h.id === t)
         })[0]
         return id ? typeTags.find(h => h.id === id).value : '未知类型'
       })();
-      
+
       houseData.value.buildYear = data.buildYear || '未知年代'
       houseData.value.elevatorRatio = data.elevatorRatio || '未知'
 
@@ -797,7 +816,7 @@ const getTargetHouseDetail = () => {
 
       // 检查收藏状态
       checkFavoriteStatus()
-      
+
       // 获取推荐房源（在获取房源详情后，确保有当前房源ID）
       getHouseList()
     }
@@ -952,7 +971,7 @@ const handleContractFileChange = (file) => {
   if (!file || !file.raw) {
     return
   }
-  
+
   // 检查文件大小（10MB）
   const maxSize = 10 * 1024 * 1024
   if (file.raw.size > maxSize) {
@@ -965,7 +984,7 @@ const handleContractFileChange = (file) => {
     }
     return
   }
-  
+
   // 检查文件类型（支持PDF、Word和TXT格式）
   const fileName = file.raw.name || ''
   const fileType = file.raw.type || ''
@@ -976,10 +995,10 @@ const handleContractFileChange = (file) => {
     'text/plain'
   ]
   const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt']
-  
-  const isValidType = allowedMimeTypes.includes(fileType) || 
+
+  const isValidType = allowedMimeTypes.includes(fileType) ||
     allowedExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
-  
+
   if (!isValidType) {
     ElMessage.error('请上传PDF、Word或TXT格式的合同文件')
     contractFileList.value = []
@@ -990,7 +1009,7 @@ const handleContractFileChange = (file) => {
     }
     return
   }
-  
+
   selectedContractFile.value = file.raw
   // 更新表单数据以触发表单验证
   contractForm.value.contractFile = file.raw.name
@@ -1040,7 +1059,7 @@ const submitContractApplication = async () => {
   try {
     // 先上传合同文件
     const uploadResponse = await contractsApi.uploadContractFile(selectedContractFile.value)
-    
+
     if (!uploadResponse.success) {
       ElMessage.error(uploadResponse.errorMsg || '合同文件上传失败')
       contractSubmitting.value = false

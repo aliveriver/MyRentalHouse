@@ -101,10 +101,14 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="用户信息" width="120">
+        <el-table-column label="用户信息" width="160">
           <template #default="scope">
             <div class="user-info">
               <div class="user-id">用户ID: {{ scope.row.buyerid }}</div>
+              <div class="user-phone">
+                电话:
+                {{ scope.row.buyerPhone || scope.row.phonenumber || scope.row.phoneNumber || 'N/A' }}
+              </div>
             </div>
           </template>
         </el-table-column>
@@ -176,6 +180,7 @@
           第{{ currentPage }}页 共{{ Math.ceil(totalCount / pageSize)
 
 
+
           }}页，共{{ totalCount }}条
         </div>
         <el-pagination
@@ -212,6 +217,9 @@
           </el-descriptions-item>
           <el-descriptions-item label="用户ID">
             {{ selectedAppointment.buyerid }}
+          </el-descriptions-item>
+          <el-descriptions-item label="联系电话">
+            {{ selectedAppointment.buyerPhone || selectedAppointment.phonenumber || selectedAppointment.phoneNumber || 'N/A' }}
           </el-descriptions-item>
           <el-descriptions-item label="房源标题" :span="2">
             {{ selectedAppointment.houseTitle || '未知房源' }}
@@ -261,7 +269,7 @@ import {
   SuccessFilled,
   CircleCloseFilled
 } from '@element-plus/icons-vue'
-import { viewingAppointmentsApi, propertiesApi } from '@/api/index'
+import { viewingAppointmentsApi, propertiesApi, usersApi } from '@/api/index'
 
 const router = useRouter()
 
@@ -299,29 +307,26 @@ const loadAppointments = async () => {
   try {
     const response = await viewingAppointmentsApi.getAllAppointments()
     if (response.success) {
-      // 获取房源信息来丰富预约数据
+      // 获取房源信息和用户信息来丰富预约数据（包含用户电话）
       const houseResponse = await propertiesApi.getAllProperties()
-      if (houseResponse.success) {
-        appointmentsList.value = response.data.map(appointment => {
-          const house = houseResponse.data.find(h => h.propertyid === appointment.propertyid)
-          return {
-            ...appointment,
-            houseTitle: house?.title || '未知房源',
-            houseAddress: house?.address || '未知地址',
-            housePrice: house?.price || 0,
-            approving: false,
-            rejecting: false,
-            cancelling: false
-          }
-        })
-      } else {
-        appointmentsList.value = response.data.map(appointment => ({
+      const usersResponse = await usersApi.getAllUsers()
+
+      appointmentsList.value = response.data.map(appointment => {
+        const house = houseResponse?.success ? houseResponse.data.find(h => h.propertyid === appointment.propertyid) : null
+        const user = usersResponse?.success ? usersResponse.data.find(u => u.userid === appointment.buyerid) : null
+        const phone = user ? (user.phonenumber || user.phoneNumber || '') : ''
+
+        return {
           ...appointment,
+          houseTitle: house?.title || '未知房源',
+          houseAddress: house?.address || '未知地址',
+          housePrice: house?.price || 0,
+          buyerPhone: phone,
           approving: false,
           rejecting: false,
           cancelling: false
-        }))
-      }
+        }
+      })
     } else {
       ElMessage.error(response.errorMsg || '获取预约列表失败')
     }
@@ -696,6 +701,11 @@ onMounted(() => {
       .user-id {
         font-size: 12px;
         color: #606266;
+      }
+      .user-phone {
+        font-size: 12px;
+        color: #606266;
+        margin-top: 4px;
       }
     }
 
