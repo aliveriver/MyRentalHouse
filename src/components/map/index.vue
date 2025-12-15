@@ -156,8 +156,7 @@ const DEPTH = {
 let AMap = null; // 高德地图对象
 let map = null; // 地图实例
 let geolocation = null; // 定位对象
-let geocoder = null; // 地理编码对象
-let placeSearch = null; // 地点搜索对象
+let geocoder = null; // 地理编码对象（用于地址搜索和逆地理编码）
 let houseMarkers = []; // 房源标记数组
 
 const inputVal = ref("");
@@ -167,6 +166,9 @@ const filterLayout = ref(''); // 户型筛选
 const filterPrice = ref(''); // 价格筛选
 const allHouses = ref([]); // 所有房源数据
 const allMarkers = ref([]); // 所有标记数据
+const centerPoint = ref(null); // 地图中心点坐标 [lng, lat]
+const searchRadius = 10; // 搜索半径（公里）
+const isManualLocation = ref(false); // 是否为手动触发定位
 function inputSearchHandler() {
   const value = inputVal.value.trim();
   if (!value) {
@@ -177,20 +179,39 @@ function inputSearchHandler() {
     return;
   }
 
-  placeSearch.search(value, (status, result) => {
+  if (!geocoder) {
+    ElMessage({
+      type: "warning",
+      message: "地图未初始化完成，请稍候再试",
+    });
+    return;
+  }
+
+  // 使用地理编码进行地址搜索（不需要额外的API权限）
+  geocoder.getLocation(value, (status, result) => {
     console.log(status, result, "地理搜索结果");
-    if (status === "complete" && result.poiList && result.poiList.pois) {
-      resultList.value = result.poiList.pois;
-      if (result.poiList.pois.length === 0) {
+    if (status === "complete" && result.geocodes && result.geocodes.length > 0) {
+      // 转换为搜索结果格式
+      resultList.value = result.geocodes.map((item) => ({
+        name: item.formattedAddress || value,
+        address: item.formattedAddress || '',
+        location: item.location,
+        cityname: item.addressComponent?.city || item.addressComponent?.province || '',
+        adname: item.addressComponent?.district || '',
+        adcode: item.adcode || '',
+        id: item.adcode || Math.random()
+      }));
+
+      if (resultList.value.length === 0) {
         ElMessage({
           type: "info",
-          message: "未找到相关位置",
+          message: "未找到相关位置，请尝试更具体的地址",
         });
       }
     } else {
       ElMessage({
-        type: "error",
-        message: "搜索失败，请重试",
+        type: "warning",
+        message: "未找到相关位置，请尝试其他关键词",
       });
       resultList.value = [];
     }
@@ -241,6 +262,13 @@ function clickAddressItem(address) {
     infoWindow.open(map, lnglat);
     resultList.value = []; // 清空搜索结果列表
     inputVal.value = ''; // 清空输入框
+
+    // 更新中心点并重新加载附近房源
+    centerPoint.value = lnglat;
+    console.log('搜索更新中心点:', centerPoint.value);
+    if (AMap && map && geocoder) {
+      loadHouseMarkers(AMap, map, geocoder);
+    }
   } else {
     console.error('位置信息无效:', address);
     ElMessage({
@@ -261,21 +289,26 @@ onMounted(() => {
     plugins: [
       "AMap.Scale", // 比例尺
       "AMap.Geolocation", // 定位插件
-      "AMap.Geocoder", // 地理编码
-      "AMap.PlaceSearch", // 地点搜索
+      "AMap.Geocoder", // 地理编码（用于地址搜索和逆地理编码）
     ],
   }).then((mapItem) => {
     AMap = mapItem;
     // 创建地图实例
     map = new AMap.Map("container", {
       resizeEnable: true, //是否监控地图容器尺寸变化
-      zoom: 6, //初始地图级别
+      zoom: 10, //初始地图级别
+      viewMode: '2D', // 2D模式
+      // 性能优化配置
+      willReadFrequently: true, // 优化频繁读取canvas的性能
+      showLabel: true, // 显示文字标记
+      showIndoorMap: false, // 关闭室内地图
+      mapStyle: 'amap://styles/normal', // 使用标准样式
+      features: ['bg', 'road', 'building', 'point'], // 指定显示的地图要素
+      labelzIndex: 110, // 标注层级
+      pitch: 0 // 倾斜角度
     });
-    // 地图搜索
-    placeSearch = new AMap.PlaceSearch({
-      map: map,
-    });
-    // 地理编码器（经纬度与地理名称互换）
+
+    // 地理编码器（经纬度与地理名称互换，也用于地址搜索）
     geocoder = new AMap.Geocoder({
       radius: 1000,
       // 返回包括小区/兴趣点信息
@@ -300,12 +333,10 @@ onMounted(() => {
 
 // 地图获取用户定位信息
 function useGeolocation(AMap, map) {
-  isLoading.value = true;
-
   // 创建定位对象
   geolocation = new AMap.Geolocation({
     enableHighAccuracy: true, //是否使用高精度定位，默认:true
-    timeout: 15000, //超过15秒后停止定位，默认：无穷大
+    timeout: 10000, //超过10秒后停止定位
     maximumAge: 0, //定位结果缓存0毫秒，默认：0
     convert: true, //自动偏移坐标，偏移后的坐标为高德坐标，默认：true
     showButton: true, //显示定位按钮，默认：true
@@ -320,40 +351,66 @@ function useGeolocation(AMap, map) {
 
   map.addControl(geolocation);
 
-  geolocation.getCurrentPosition((status, result) => {
-    isLoading.value = false;
-    if (status === 'complete') {
-      console.log('定位成功:', result);
-      // 设置地图缩放级别
-      map.setZoom(15);
-    } else {
-      console.error('定位失败:', result);
-      ElMessage({
-        type: "error",
-        message: `定位失败: ${result.message || '请检查定位权限'}`,
-      });
-      // 定位失败时设置默认位置（北京）
-      map.setCenter([116.397428, 39.90923]);
-      map.setZoom(10);
-    }
-  });
-
+  // 只使用事件监听，避免重复触发
   geolocation.on("complete", (evt) => {
     isLoading.value = false;
-    console.log(evt, "定位成功事件");
+    console.log('定位成功:', evt);
+
+    // 更新中心点
+    if (evt.position) {
+      centerPoint.value = [evt.position.lng, evt.position.lat];
+      console.log('当前定位中心点:', centerPoint.value);
+
+      // 设置地图缩放
+      setTimeout(() => {
+        if (map) {
+          map.setZoom(15);
+        }
+      }, 100);
+
+      // 加载附近房源
+      if (AMap && map && geocoder) {
+        loadHouseMarkers(AMap, map, geocoder);
+      }
+
+      // 只有手动触发的定位才显示成功提示
+      if (isManualLocation.value) {
+        ElMessage.success('定位成功');
+        isManualLocation.value = false;
+      }
+    }
   });
 
   geolocation.on("error", (err) => {
     isLoading.value = false;
-    console.error(err, "定位失败事件");
-    ElMessage({
-      type: "error",
-      message: "定位失败，将显示默认位置",
-    });
-    // 定位失败时设置默认位置（北京）
-    map.setCenter([116.397428, 39.90923]);
-    map.setZoom(10);
+    console.warn('定位失败:', err);
+
+    // 只有手动触发的定位才显示错误提示
+    if (isManualLocation.value) {
+      ElMessage.error('定位失败：' + (err.message || '请检查定位权限'));
+      isManualLocation.value = false;
+    }
+
+    // 设置默认位置（北京）
+    const defaultCenter = [116.397428, 39.90923];
+    map.setCenter(defaultCenter);
+    centerPoint.value = defaultCenter;
+
+    setTimeout(() => {
+      if (map) {
+        map.setZoom(10);
+      }
+    }, 100);
+
+    // 加载默认位置附近的房源
+    if (AMap && map && geocoder) {
+      loadHouseMarkers(AMap, map, geocoder);
+    }
   });
+
+  // 触发自动定位
+  isLoading.value = true;
+  geolocation.getCurrentPosition();
 }
 
 // 地图点击事件
@@ -439,12 +496,34 @@ function useMapClick(AMap, map, geocoder) {
   });
 }
 
+// 计算两点之间的距离（单位：公里）
+function calculateDistance(lng1, lat1, lng2, lat2) {
+  const R = 6371; // 地球半径（公里）
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 // 加载房源标记
 async function loadHouseMarkers(AMap, map, geocoder) {
   try {
     console.log('开始获取房源列表...');
     console.log('地图实例:', map);
     console.log('地理编码器:', geocoder);
+
+    // 检查是否有中心点
+    if (!centerPoint.value) {
+      console.warn('中心点未设置，等待定位完成...');
+      return;
+    }
+
+    console.log(`当前中心点: [${centerPoint.value[0]}, ${centerPoint.value[1]}]`);
+    console.log(`搜索半径: ${searchRadius}公里`);
 
     // 获取房源列表（买家只能看到"在售"状态的房源）
     const response = await propertiesApi.getAllProperties({
@@ -495,6 +574,44 @@ async function loadHouseMarkers(AMap, map, geocoder) {
       ElMessage.info('当前没有"在售"状态的房源');
       return;
     }
+
+    // 过滤出距离中心点10公里以内的房源
+    const nearbyHouses = [];
+    const [centerLng, centerLat] = centerPoint.value;
+
+    for (const house of houses) {
+      // 获取房源坐标（兼容不同字段名）
+      const getLongitude = (h) => h.longitude !== undefined && h.longitude !== null ? h.longitude : (h.Longitude !== undefined && h.Longitude !== null ? h.Longitude : null);
+      const getLatitude = (h) => h.latitude !== undefined && h.latitude !== null ? h.latitude : (h.Latitude !== undefined && h.Latitude !== null ? h.Latitude : null);
+
+      const lon = getLongitude(house);
+      const lat = getLatitude(house);
+      const lonNum = lon != null ? parseFloat(lon) : NaN;
+      const latNum = lat != null ? parseFloat(lat) : NaN;
+
+      // 如果有坐标，计算距离
+      if (!isNaN(lonNum) && !isNaN(latNum) && lonNum !== 0 && latNum !== 0) {
+        const distance = calculateDistance(centerLng, centerLat, lonNum, latNum);
+        if (distance <= searchRadius) {
+          nearbyHouses.push(house);
+        }
+      } else {
+        // 如果没有坐标，也加入列表（后续通过地址编码判断）
+        nearbyHouses.push(house);
+      }
+    }
+
+    console.log(`筛选出 ${nearbyHouses.length}/${houses.length} 个在${searchRadius}公里范围内的房源`);
+
+    if (nearbyHouses.length === 0) {
+      houseCount.value = 0;
+      allHouses.value = [];
+      ElMessage.info(`附近${searchRadius}公里内没有在售房源`);
+      return;
+    }
+
+    // 使用过滤后的房源列表
+    houses = nearbyHouses;
 
     // 打印前几个房源的信息用于调试（包含定位信息）
     console.log('🔍 前3个房源详细信息:', houses.slice(0, 3).map(h => {
@@ -883,6 +1000,8 @@ function handlePriceFilter(price) {
 
 function handleLocationClick() {
   if (geolocation) {
+    isLoading.value = true;
+    isManualLocation.value = true; // 标记为手动触发
     geolocation.getCurrentPosition();
   }
 }
@@ -980,7 +1099,6 @@ onUnmounted(() => {
     map = null;
     geolocation = null;
     geocoder = null;
-    placeSearch = null;
     AMap = null;
     houseMarkers = [];
     allHouses.value = [];

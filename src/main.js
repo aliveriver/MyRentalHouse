@@ -1,3 +1,9 @@
+// 高德地图安全密钥配置 - 必须在加载地图 JS 之前设置！
+import { key_web_safe_js } from './components/map/config.js';
+window._AMapSecurityConfig = {
+  securityJsCode: key_web_safe_js,
+};
+
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 import ElementPlus from 'element-plus';
 import 'element-plus/dist/index.css';
