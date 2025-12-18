@@ -64,8 +64,8 @@
           stripe
           height="600"
         >
-          <el-table-column 
-            type="selection" 
+          <el-table-column
+            type="selection"
             width="55"
             :selectable="(row) => row.contractstatus !== '已签订'"
           />
@@ -81,7 +81,7 @@
                   {{ scope.row.houseAddress || '地址未知' }}
                 </div>
                 <div class="house-price">
-                  ¥{{ scope.row.housePrice || 0 }}万
+                  ¥{{ formatPrice(scope.row.housePrice) }}元
                 </div>
               </div>
             </template>
@@ -167,6 +167,13 @@
           <div class="pagination-info">
             第{{ pagination.page }}页 共{{ Math.ceil(pagination.total / pagination.size)
 
+
+
+
+
+
+
+
             }}页，共{{ pagination.total }}条
           </div>
           <el-pagination
@@ -217,7 +224,7 @@
               {{ currentContract.houseAddress || '地址未知' }}
             </el-descriptions-item>
             <el-descriptions-item label="房源价格">
-              ¥{{ currentContract.housePrice || 0 }}元
+              ¥{{ formatPrice(currentContract.housePrice) }}元
             </el-descriptions-item>
             <el-descriptions-item label="买家ID">
               {{ currentContract.buyerid }}
@@ -304,11 +311,7 @@
             </div>
           </div>
         </el-card>
-        <el-card
-          v-else
-          shadow="never"
-          class="contract-template-card"
-        >
+        <el-card v-else shadow="never" class="contract-template-card">
           <el-empty description="暂无合同模板文件" />
         </el-card>
       </div>
@@ -383,9 +386,9 @@
     <!-- 费用说明与支付弹窗 -->
     <PaymentDialog
       v-model="paymentDialogVisible"
-      :property-price="pendingContract?.housePrice || 0"
+      :property-price="propertyPriceInYuan"
       :service-fee="calculateServiceFee"
-      :contract-id="pendingContract?.contractid"
+      :contract-id="pendingContractId"
       contract-type="sign"
       @confirm="handlePaymentConfirm"
       @cancel="handlePaymentCancel"
@@ -466,8 +469,18 @@ const editRules = {
 
 // 计算服务费（0.5%房价，单位：元）
 const calculateServiceFee = computed(() => {
-  const priceInYuan = pendingContract.value?.housePrice || 0 // 价格已经是元单位
+  const priceInYuan = pendingContract.value?.housePrice || 0 // 数据库存储的就是元
   return Math.round(priceInYuan * 0.005) // 0.5%服务费，四舍五入到整数
+})
+
+// 计算房源价格（元）- 用于传递给 PaymentDialog
+const propertyPriceInYuan = computed(() => {
+  return pendingContract.value?.housePrice || 0 // 数据库存储的就是元
+})
+
+// 获取待处理合同ID - 用于传递给 PaymentDialog
+const pendingContractId = computed(() => {
+  return pendingContract.value?.contractid || null
 })
 
 // 过滤后的合同列表
@@ -507,7 +520,7 @@ const router = useRouter()
 
 onMounted(() => {
   loadContracts()
-  
+
   // 检查是否从支付页面返回
   if (route.query.fromPayment === 'true') {
     // 延迟一下确保页面已加载
@@ -534,7 +547,8 @@ const loadContracts = async () => {
   try {
     const [contractsResponse, propertiesResponse, usersResponse] = await Promise.all([
       contractsApi.getAllContracts(),
-      propertiesApi.getAllProperties(),
+      // 在合同管理页面需要看到所有状态的房源
+      propertiesApi.getAllProperties({ includeAllStatus: true }),
       usersApi.getAllUsers()
     ])
 
@@ -915,6 +929,13 @@ const handleBatchDelete = async () => {
     console.error('批量删除合同失败:', error)
     ElMessage.error('批量删除失败，请稍后再试')
   }
+}
+
+// 格式化价格（添加千分位分隔符）
+const formatPrice = (price) => {
+  if (!price || price === 0) return '0'
+  // 数据库中存储的就是元
+  return price.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
 }
 
 // 格式化日期

@@ -215,7 +215,9 @@
               {{ house.rooms }} | {{ house.area }}
             </div>
             <div class="recommended-location">{{ house.location }}</div>
-            <div class="recommended-price">{{ house.totalPrice }}万</div>
+            <div class="recommended-price">
+              ¥{{ formatPrice(house.totalPrice) }}元
+            </div>
           </div>
         </div>
       </div>
@@ -484,6 +486,13 @@ const calculateServiceFee = computed(() => {
   const priceInYuan = houseData.value.totalPrice || 0 // 价格已经是元单位
   return Math.round(priceInYuan * 0.005) // 0.5%服务费，四舍五入到整数
 })
+
+// 格式化价格（添加千分位分隔符）
+const formatPrice = (price) => {
+  if (!price || price === 0) return '0'
+  // 数据库中存储的就是元
+  return price.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+}
 
 // 随机打乱数组的辅助函数
 const shuffleArray = (array) => {

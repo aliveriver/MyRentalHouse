@@ -168,6 +168,8 @@ const allHouses = ref([]); // 所有房源数据
 const allMarkers = ref([]); // 所有标记数据
 const centerPoint = ref(null); // 地图中心点坐标 [lng, lat]
 const searchRadius = 10; // 搜索半径（公里）
+let isLoadingMarkers = false; // 标记是否正在加载房源，防止重复调用
+let loadMarkersTimer = null; // 防抖定时器
 const isManualLocation = ref(false); // 是否为手动触发定位
 function inputSearchHandler() {
   const value = inputVal.value.trim();
@@ -322,11 +324,7 @@ onMounted(() => {
       useGeolocation(AMap, map);
       // 初始化点击事件
       useMapClick(AMap, map, geocoder);
-      // 延迟一下再加载房源标记，确保地图完全就绪
-      setTimeout(() => {
-        console.log('开始加载房源标记...');
-        loadHouseMarkers(AMap, map, geocoder);
-      }, 500);
+      // 注意：不在这里加载房源标记，等定位完成后再加载
     });
   });
 });
@@ -511,16 +509,31 @@ function calculateDistance(lng1, lat1, lng2, lat2) {
 
 // 加载房源标记
 async function loadHouseMarkers(AMap, map, geocoder) {
-  try {
-    console.log('开始获取房源列表...');
-    console.log('地图实例:', map);
-    console.log('地理编码器:', geocoder);
+  // 防抖：清除之前的定时器
+  if (loadMarkersTimer) {
+    clearTimeout(loadMarkersTimer);
+  }
 
-    // 检查是否有中心点
-    if (!centerPoint.value) {
-      console.warn('中心点未设置，等待定位完成...');
-      return;
-    }
+  // 如果正在加载，跳过本次调用
+  if (isLoadingMarkers) {
+    console.log('⏸️ 房源正在加载中，跳过重复调用');
+    return;
+  }
+
+  // 设置防抖定时器，500ms 后执行
+  loadMarkersTimer = setTimeout(async () => {
+    try {
+      isLoadingMarkers = true;
+      console.log('开始获取房源列表...');
+      console.log('地图实例:', map);
+      console.log('地理编码器:', geocoder);
+
+      // 检查是否有中心点
+      if (!centerPoint.value) {
+        console.warn('中心点未设置，等待定位完成...');
+        isLoadingMarkers = false;
+        return;
+      }
 
     console.log(`当前中心点: [${centerPoint.value[0]}, ${centerPoint.value[1]}]`);
     console.log(`搜索半径: ${searchRadius}公里`);
@@ -746,11 +759,14 @@ async function loadHouseMarkers(AMap, map, geocoder) {
       console.error('  3. 高德地图API地理编码服务异常');
       console.error('  4. 网络连接问题');
     }
-  } catch (error) {
-    console.error('加载房源标记失败:', error);
-    console.error('错误堆栈:', error.stack);
-    ElMessage.error('加载房源标记失败: ' + (error.message || '请稍后重试'));
-  }
+    } catch (error) {
+      console.error('加载房源标记失败:', error);
+      console.error('错误堆栈:', error.stack);
+      ElMessage.error('加载房源标记失败: ' + (error.message || '请稍后重试'));
+    } finally {
+      isLoadingMarkers = false;
+    }
+  }, 500);
 }
 
 // 清除所有标记

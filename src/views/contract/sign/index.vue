@@ -66,7 +66,6 @@
             <el-input v-model="contractForm.buyerid" disabled />
           </el-form-item>
 
-
           <el-form-item label="合同文件" prop="contractFile">
             <el-upload
               ref="uploadRef"
@@ -221,7 +220,7 @@ const initializeForm = () => {
   // 设置默认签约时间为当前时间
   const now = new Date()
   contractForm.signingdate = now.toISOString().slice(0, 10) // 只取日期部分
-  
+
   // 重置文件上传
   contractFileList.value = []
   selectedContractFile.value = null
@@ -238,7 +237,8 @@ const loadHouseInfo = async () => {
 
   loading.value = true
   try {
-    const response = await propertiesApi.getAllProperties()
+    // 签署合同时需要获取房源详情，使用 includeAllStatus 以防房源状态已变更
+    const response = await propertiesApi.getAllProperties({ includeAllStatus: true })
     if (response.success) {
       const house = response.data.find(h => h.propertyid == propertyId.value)
       if (house) {
@@ -267,7 +267,7 @@ const handleContractFileChange = (file) => {
   if (!file || !file.raw) {
     return
   }
-  
+
   // 检查文件大小（10MB）
   const maxSize = 10 * 1024 * 1024
   if (file.raw.size > maxSize) {
@@ -280,7 +280,7 @@ const handleContractFileChange = (file) => {
     }
     return
   }
-  
+
   // 检查文件类型（支持PDF、Word和TXT格式）
   const fileName = file.raw.name || ''
   const fileType = file.raw.type || ''
@@ -291,10 +291,10 @@ const handleContractFileChange = (file) => {
     'text/plain'
   ]
   const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt']
-  
-  const isValidType = allowedMimeTypes.includes(fileType) || 
+
+  const isValidType = allowedMimeTypes.includes(fileType) ||
     allowedExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
-  
+
   if (!isValidType) {
     ElMessage.error('请上传PDF、Word或TXT格式的合同文件')
     contractFileList.value = []
@@ -305,7 +305,7 @@ const handleContractFileChange = (file) => {
     }
     return
   }
-  
+
   selectedContractFile.value = file.raw
   // 更新表单数据以触发表单验证
   contractForm.contractFile = file.raw.name
@@ -362,7 +362,7 @@ const submitContract = async () => {
 
     // 先上传合同文件
     const uploadResponse = await contractsApi.uploadContractFile(selectedContractFile.value)
-    
+
     if (!uploadResponse.success) {
       ElMessage.error(uploadResponse.errorMsg || '合同文件上传失败')
       submitting.value = false

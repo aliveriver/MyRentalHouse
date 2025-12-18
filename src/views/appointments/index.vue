@@ -95,7 +95,7 @@
                 {{ scope.row.houseAddress || '房源地址' }}
               </div>
               <div class="house-price">
-                ¥{{ scope.row.housePrice || '未知' }}万
+                ¥{{ formatPrice(scope.row.housePrice) }}元
               </div>
             </div>
           </template>
@@ -178,6 +178,9 @@
       <div class="pagination-wrapper">
         <div class="pagination-info">
           第{{ currentPage }}页 共{{ Math.ceil(totalCount / pageSize)
+
+
+
 
 
 
@@ -308,7 +311,8 @@ const loadAppointments = async () => {
     const response = await viewingAppointmentsApi.getAllAppointments()
     if (response.success) {
       // 获取房源信息和用户信息来丰富预约数据（包含用户电话）
-      const houseResponse = await propertiesApi.getAllProperties()
+      // 在预约管理页面需要看到所有状态的房源
+      const houseResponse = await propertiesApi.getAllProperties({ includeAllStatus: true })
       const usersResponse = await usersApi.getAllUsers()
 
       appointmentsList.value = response.data.map(appointment => {
@@ -510,6 +514,13 @@ const clearFilters = () => {
 // 分页处理
 const handleCurrentChange = (newPage) => {
   currentPage.value = newPage
+}
+
+// 格式化价格（添加千分位分隔符）
+const formatPrice = (price) => {
+  if (!price || price === 0) return '0'
+  // 数据库中存储的就是元
+  return price.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
 }
 
 // 格式化日期时间

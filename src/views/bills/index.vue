@@ -20,12 +20,16 @@
           style="width: 100%"
         >
           <el-table-column prop="billid" label="账单编号" width="120" />
-          
+
           <el-table-column label="房源信息" min-width="200">
             <template #default="scope">
               <div class="property-info">
-                <div class="property-title">{{ scope.row.propertyTitle || '未知房源' }}</div>
-                <div class="property-address">{{ scope.row.propertyAddress || '地址未知' }}</div>
+                <div class="property-title">
+                  {{ scope.row.propertyTitle || '未知房源' }}
+                </div>
+                <div class="property-address">
+                  {{ scope.row.propertyAddress || '地址未知' }}
+                </div>
               </div>
             </template>
           </el-table-column>
@@ -34,13 +38,20 @@
             <template #default="scope">
               <div class="amount-info">
                 <div class="service-fee">
-                  服务费：<span class="fee">¥{{ formatPrice(scope.row.servicefee) }}</span>
+                  服务费：<span class="fee"
+                    >¥{{ formatPrice(scope.row.servicefee) }}</span
+                  >
                 </div>
               </div>
             </template>
           </el-table-column>
 
-          <el-table-column prop="billstatus" label="账单状态" width="120" align="center">
+          <el-table-column
+            prop="billstatus"
+            label="账单状态"
+            width="120"
+            align="center"
+          >
             <template #default="scope">
               <el-tag :type="getStatusTagType(scope.row.billstatus)">
                 {{ scope.row.billstatus }}
@@ -48,19 +59,34 @@
             </template>
           </el-table-column>
 
-          <el-table-column prop="createdate" label="创建时间" width="180" align="center">
+          <el-table-column
+            prop="createdate"
+            label="创建时间"
+            width="180"
+            align="center"
+          >
             <template #default="scope">
               {{ formatDate(scope.row.createdate) }}
             </template>
           </el-table-column>
 
-          <el-table-column prop="paydate" label="支付时间" width="180" align="center">
+          <el-table-column
+            prop="paydate"
+            label="支付时间"
+            width="180"
+            align="center"
+          >
             <template #default="scope">
               {{ scope.row.paydate ? formatDate(scope.row.paydate) : '-' }}
             </template>
           </el-table-column>
 
-          <el-table-column label="操作" width="250" align="center" fixed="right">
+          <el-table-column
+            label="操作"
+            width="250"
+            align="center"
+            fixed="right"
+          >
             <template #default="scope">
               <el-button
                 type="primary"
@@ -117,11 +143,7 @@
     </div>
 
     <!-- 账单详情对话框 -->
-    <el-dialog
-      v-model="detailDialogVisible"
-      title="账单详情"
-      width="600px"
-    >
+    <el-dialog v-model="detailDialogVisible" title="账单详情" width="600px">
       <div v-if="currentBill" class="bill-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="账单编号">
@@ -131,7 +153,9 @@
             {{ currentBill.contractid }}
           </el-descriptions-item>
           <el-descriptions-item label="房源价格（参考）" :span="2">
-            <span class="price">¥{{ formatPrice(currentBill.propertyprice) }}</span>
+            <span class="price"
+              >¥{{ formatPrice(currentBill.propertyprice) }}</span
+            >
           </el-descriptions-item>
           <el-descriptions-item label="服务费（账单金额）" :span="2">
             <span class="fee">¥{{ formatPrice(currentBill.servicefee) }}</span>
@@ -147,13 +171,24 @@
           <el-descriptions-item v-if="currentBill.paydate" label="支付时间">
             {{ formatDate(currentBill.paydate) }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="currentBill.paymentmethod" label="支付方式">
+          <el-descriptions-item
+            v-if="currentBill.paymentmethod"
+            label="支付方式"
+          >
             {{ currentBill.paymentmethod }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="currentBill.paymenttransactionid" label="交易号" :span="2">
+          <el-descriptions-item
+            v-if="currentBill.paymenttransactionid"
+            label="交易号"
+            :span="2"
+          >
             {{ currentBill.paymenttransactionid }}
           </el-descriptions-item>
-          <el-descriptions-item v-if="currentBill.remark" label="备注" :span="2">
+          <el-descriptions-item
+            v-if="currentBill.remark"
+            label="备注"
+            :span="2"
+          >
             {{ currentBill.remark }}
           </el-descriptions-item>
         </el-descriptions>
@@ -183,7 +218,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { billsApi } from '@/api/index'
+import { billsApi, propertiesApi } from '@/api/index'
 
 const router = useRouter()
 
@@ -220,7 +255,22 @@ const getBills = async () => {
       : await billsApi.getAllBillsByBuyer()
 
     if (response && response.success) {
-      bills.value = response.data || []
+      // 在账单页面需要看到所有状态的房源，包括已出售的
+      const propsResponse = await propertiesApi.getAllProperties({ includeAllStatus: true })
+      const propertiesList = propsResponse && propsResponse.success ? propsResponse.data : []
+
+      bills.value = (response.data || []).map(bill => {
+        // 有些接口可能返回不同字段名，尝试兼容
+        const propId = bill.propertyid || bill.propertyId || bill.propertyIdStr || null
+        const prop = propertiesList.find(p => p.propertyid === propId) || propertiesList.find(p => p.id === propId) || null
+
+        return {
+          ...bill,
+          propertyTitle: bill.propertyTitle || bill.propertytitle || prop?.title || prop?.name || '',
+          propertyAddress: bill.propertyAddress || bill.propertyaddress || prop?.address || '',
+          propertyStatus: prop?.status || '' // 保存房源状态，用于判断是否可以撤回
+        }
+      })
     } else {
       ElMessage.error(response?.errorMsg || '获取账单列表失败')
     }
@@ -304,12 +354,17 @@ const canWithdrawBill = (bill) => {
   if (!bill.remark || !bill.remark.includes('买家服务费账单')) {
     return false
   }
-  
+
   // 不能撤回房价账单
   if (bill.remark && bill.remark.includes('房款账单')) {
     return false
   }
-  
+
+  // 如果房源已售出，不能撤回（兼容"已售"和"已售出"两种状态值）
+  if (bill.propertyStatus === '已售出' || bill.propertyStatus === '已售') {
+    return false
+  }
+
   // 只能撤回"已支付"或"待支付"状态的服务费账单
   return bill.billstatus === '已支付' || bill.billstatus === '待支付'
 }
@@ -467,4 +522,3 @@ onMounted(() => {
   }
 }
 </style>
-

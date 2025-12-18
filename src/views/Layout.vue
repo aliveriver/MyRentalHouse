@@ -35,10 +35,7 @@
         <el-header class="header">
           <el-dropdown v-if="store.isLogin">
             <div>
-              <el-avatar
-                :size="44"
-                :src="userAvatarUrl"
-              >
+              <el-avatar :size="44" :src="userAvatarUrl">
                 <el-icon><User /></el-icon>
               </el-avatar>
             </div>
@@ -126,21 +123,9 @@
                 </div>
 
                 <div class="house-price">
-                  <span class="price">¥{{ house.price }}</span>
+                  <span class="price">¥{{ formatPrice(house.price) }}元</span>
                   <span class="unit-price"
-                    >{{ (house.price * 10000 / house.area).toFixed(0)
-
-
-
-
-
-
-
-
-
-
-
-
+                    >{{ (house.price / house.area).toFixed(0)
 
                     }}元/m²</span
                   >
@@ -212,7 +197,7 @@
                       {{ scope.row.houseAddress || '房源地址' }}
                     </div>
                     <div class="house-price">
-                      ¥{{ scope.row.housePrice || '未知' }}
+                      ¥{{ formatPrice(scope.row.housePrice) }}元
                     </div>
                   </div>
                 </template>
@@ -368,12 +353,12 @@ const loadFavorites = async () => {
     const favorites = await favoritesApi.getFavorites(favoritesPage.value, favoritesPageSize.value)
     if (houseAll.success && favorites.success) {
       // 确保 favorites.data.data 是数组
-      const favoritesData = Array.isArray(favorites.data?.data) 
-        ? favorites.data.data 
-        : Array.isArray(favorites.data) 
-          ? favorites.data 
+      const favoritesData = Array.isArray(favorites.data?.data)
+        ? favorites.data.data
+        : Array.isArray(favorites.data)
+          ? favorites.data
           : []
-      
+
       const filterData = houseAll.data.filter(house => {
         return favoritesData.some(fav => {
           return fav.propertyId === house.propertyid
@@ -461,8 +446,8 @@ const loadAppointments = async () => {
   try {
     const response = await viewingAppointmentsApi.getAllAppointments()
     if (response.success) {
-      // 获取房源信息来丰富预约数据
-      const houseResponse = await propertiesApi.getAllProperties()
+      // 获取房源信息来丰富预约数据（在预约管理页面需要看到所有状态的房源）
+      const houseResponse = await propertiesApi.getAllProperties({ includeAllStatus: true })
       if (houseResponse.success) {
         appointmentsList.value = response.data.map(appointment => {
           const house = houseResponse.data.find(h => h.propertyid === appointment.propertyid)
@@ -525,6 +510,13 @@ const deleteAppointment = async (appointmentId) => {
     const appointment = appointmentsList.value.find(a => a.appointmentid === appointmentId)
     if (appointment) appointment.deleting = false
   }
+}
+
+// 格式化价格（添加千分位分隔符）
+const formatPrice = (price) => {
+  if (!price || price === 0) return '0'
+  // 数据库中存储的就是元
+  return price.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
 }
 
 // 格式化日期时间
