@@ -49,6 +49,89 @@
       </el-card>
     </div>
 
+    <!-- 筛选区域 -->
+    <el-card class="filter-card" shadow="never">
+      <el-form :model="searchForm" inline class="search-form">
+        <el-form-item label="预约编号">
+          <el-input
+            v-model="searchForm.appointmentId"
+            placeholder="输入预约编号"
+            clearable
+            style="width: 160px"
+          />
+        </el-form-item>
+        <el-form-item label="房源关键词">
+          <el-input
+            v-model="searchForm.houseKeyword"
+            placeholder="房源标题或地址"
+            clearable
+            style="width: 180px"
+          />
+        </el-form-item>
+        <el-form-item label="用户ID">
+          <el-input
+            v-model="searchForm.buyerId"
+            placeholder="输入用户ID"
+            clearable
+            style="width: 140px"
+          />
+        </el-form-item>
+        <el-form-item label="预约状态">
+          <el-select
+            v-model="searchForm.status"
+            placeholder="请选择状态"
+            clearable
+            style="width: 140px"
+          >
+            <el-option label="待审批" value="待审批" />
+            <el-option label="已预约" value="已预约" />
+            <el-option label="已取消" value="已取消" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="预约时间">
+          <el-date-picker
+            v-model="searchForm.dateRange"
+            type="datetimerange"
+            range-separator="至"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 360px"
+          />
+        </el-form-item>
+        <el-form-item label="价格范围">
+          <div class="price-range-wrapper">
+            <el-input-number
+              v-model="searchForm.minPrice"
+              :min="0"
+              :max="searchForm.maxPrice || 9999999999"
+              placeholder="最低价"
+              controls-position="right"
+              style="width: 130px"
+            />
+            <span class="price-separator">-</span>
+            <el-input-number
+              v-model="searchForm.maxPrice"
+              :min="searchForm.minPrice || 0"
+              placeholder="最高价"
+              controls-position="right"
+              style="width: 130px"
+            />
+          </div>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">
+            <el-icon><Search /></el-icon>
+            搜索
+          </el-button>
+          <el-button @click="resetSearchForm">
+            <el-icon><RefreshLeft /></el-icon>
+            重置
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
     <!-- 预约列表 -->
     <el-card class="table-card" shadow="never">
       <div class="table-header">
@@ -72,7 +155,7 @@
       </div>
 
       <el-table
-        :data="appointmentsList"
+        :data="paginatedAppointments"
         v-loading="loading"
         @selection-change="handleSelectionChange"
         style="width: 100%"
@@ -178,12 +261,6 @@
       <div class="pagination-wrapper">
         <div class="pagination-info">
           第{{ currentPage }}页 共{{ Math.ceil(totalCount / pageSize)
-
-
-
-
-
-
           }}页，共{{ totalCount }}条
         </div>
         <el-pagination
@@ -263,14 +340,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Calendar,
   Clock,
   SuccessFilled,
-  CircleCloseFilled
+  CircleCloseFilled,
+  Search,
+  RefreshLeft
 } from '@element-plus/icons-vue'
 import { viewingAppointmentsApi, propertiesApi, usersApi } from '@/api/index'
 
@@ -282,26 +361,102 @@ const appointmentsList = ref([])
 const selectedAppointments = ref([])
 const currentPage = ref(1)
 const pageSize = ref(20)
-const totalCount = ref(0)
 
-// 筛选相关
-const statusFilter = ref('')
-const dateRange = ref([])
+// 搜索表单
+const searchForm = reactive({
+  appointmentId: '',
+  houseKeyword: '',
+  buyerId: '',
+  status: '',
+  dateRange: [],
+  minPrice: null,
+  maxPrice: null
+})
 
 // 对话框
 const detailDialogVisible = ref(false)
 const selectedAppointment = ref(null)
 
-// 统计数据
-const totalAppointments = computed(() => appointmentsList.value.length)
+// 过滤后的预约列表
+const filteredAppointments = computed(() => {
+  let filtered = [...appointmentsList.value]
+
+  // 预约编号过滤
+  if (searchForm.appointmentId && searchForm.appointmentId.trim()) {
+    const keyword = searchForm.appointmentId.trim()
+    filtered = filtered.filter(appointment =>
+      appointment.appointmentid && appointment.appointmentid.toString().includes(keyword)
+    )
+  }
+
+  // 房源关键词过滤（标题或地址）
+  if (searchForm.houseKeyword && searchForm.houseKeyword.trim()) {
+    const keyword = searchForm.houseKeyword.trim().toLowerCase()
+    filtered = filtered.filter(appointment =>
+      (appointment.houseTitle && appointment.houseTitle.toLowerCase().includes(keyword)) ||
+      (appointment.houseAddress && appointment.houseAddress.toLowerCase().includes(keyword))
+    )
+  }
+
+  // 用户ID过滤
+  if (searchForm.buyerId && searchForm.buyerId.trim()) {
+    const keyword = searchForm.buyerId.trim()
+    filtered = filtered.filter(appointment =>
+      appointment.buyerid && appointment.buyerid.toString().includes(keyword)
+    )
+  }
+
+  // 状态过滤
+  if (searchForm.status) {
+    filtered = filtered.filter(appointment =>
+      appointment.status === searchForm.status
+    )
+  }
+
+  // 日期范围过滤
+  if (searchForm.dateRange && searchForm.dateRange.length === 2) {
+    const [startDate, endDate] = searchForm.dateRange
+    filtered = filtered.filter(appointment => {
+      const appointmentTime = appointment.appointmenttime
+      return appointmentTime >= startDate && appointmentTime <= endDate
+    })
+  }
+
+  // 价格范围过滤
+  if (searchForm.minPrice !== null && searchForm.minPrice !== undefined) {
+    filtered = filtered.filter(appointment =>
+      appointment.housePrice >= searchForm.minPrice
+    )
+  }
+  if (searchForm.maxPrice !== null && searchForm.maxPrice !== undefined) {
+    filtered = filtered.filter(appointment =>
+      appointment.housePrice <= searchForm.maxPrice
+    )
+  }
+
+  return filtered
+})
+
+// 分页后的预约列表
+const paginatedAppointments = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredAppointments.value.slice(start, end)
+})
+
+// 总数
+const totalCount = computed(() => filteredAppointments.value.length)
+
+// 统计数据（基于筛选后的数据）
+const totalAppointments = computed(() => filteredAppointments.value.length)
 const pendingAppointments = computed(() =>
-  appointmentsList.value.filter(a => a.status === '待审批').length
+  filteredAppointments.value.filter(a => a.status === '待审批').length
 )
 const approvedAppointments = computed(() =>
-  appointmentsList.value.filter(a => a.status === '已预约').length
+  filteredAppointments.value.filter(a => a.status === '已预约').length
 )
 const cancelledAppointments = computed(() =>
-  appointmentsList.value.filter(a => a.status === '已取消').length
+  filteredAppointments.value.filter(a => a.status === '已取消').length
 )
 
 // 加载预约列表
@@ -499,16 +654,23 @@ const handleSelectionChange = (selection) => {
   selectedAppointments.value = selection.filter(item => item.status === '待审批')
 }
 
-// 应用筛选
-const applyFilters = () => {
+// 处理搜索
+const handleSearch = () => {
   currentPage.value = 1
+  ElMessage.success(`找到 ${filteredAppointments.value.length} 个符合条件的预约`)
 }
 
-// 清除筛选
-const clearFilters = () => {
-  statusFilter.value = ''
-  dateRange.value = []
+// 重置搜索表单
+const resetSearchForm = () => {
+  searchForm.appointmentId = ''
+  searchForm.houseKeyword = ''
+  searchForm.buyerId = ''
+  searchForm.status = ''
+  searchForm.dateRange = []
+  searchForm.minPrice = null
+  searchForm.maxPrice = null
   currentPage.value = 1
+  ElMessage.info('已重置搜索条件')
 }
 
 // 分页处理
@@ -639,6 +801,23 @@ onMounted(() => {
 
   .filter-card {
     margin-bottom: 20px;
+
+    .search-form {
+      .el-form-item {
+        margin-bottom: 10px;
+      }
+
+      .price-range-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .price-separator {
+          color: #909399;
+          font-weight: 500;
+        }
+      }
+    }
 
     .filter-row {
       display: flex;

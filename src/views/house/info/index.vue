@@ -7,58 +7,60 @@
         <!-- 房源搜索面板 -->
         <div class="section-header">
           <h3>房源信息</h3>
-          <el-form :inline="true" :model="houseObject">
-            <el-form-item label="地区">
-              <el-select
+          <el-form
+            :inline="true"
+            :model="houseObject"
+            class="house-search-form"
+          >
+            <el-form-item label="地区查询">
+              <el-input
                 v-model="houseObject.address"
-                placeholder="请选择.."
+                placeholder="输入地区关键词"
+                clearable
                 style="width: 200px"
-              >
-                <el-option
-                  v-for="item in [
-                            { label: '北京', value: 'beijing' },
-                            { label: '上海', value: 'shanghai' },
-                            { label: '辽宁', value: 'liaoning' }
-                        ]"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
+              />
             </el-form-item>
-            <el-form-item label="价格">
-              <el-select
-                v-model="houseObject.price"
-                placeholder="请选择.."
-                style="width: 200px"
-              >
-                <el-option
-                  v-for="item in [
-                            { label: '1000以下', value: '1000' },
-                            { label: '1000-2000', value: '2000' },
-                            { label: '2000-3000', value: '3000' },
-                            { label: '3000以上', value: '4000' }
-                        ]"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
+            <el-form-item label="价格范围">
+              <div class="price-range-wrapper">
+                <el-input-number
+                  v-model="houseObject.minPrice"
+                  :min="0"
+                  :max="houseObject.maxPrice || 9999999999"
+                  placeholder="最低价"
+                  controls-position="right"
+                  style="width: 140px"
                 />
-              </el-select>
+                <span class="price-separator">-</span>
+                <el-input-number
+                  v-model="houseObject.maxPrice"
+                  :min="houseObject.minPrice || 0"
+                  placeholder="最高价"
+                  controls-position="right"
+                  style="width: 140px"
+                />
+              </div>
             </el-form-item>
             <el-form-item>
-              <el-button type="primary" @click="onSubmit">查询</el-button>
+              <el-button type="primary" @click="onSubmit">
+                <el-icon><Search /></el-icon>
+                查询
+              </el-button>
+              <el-button @click="resetSearch">
+                <el-icon><RefreshLeft /></el-icon>
+                重置
+              </el-button>
             </el-form-item>
           </el-form>
         </div>
 
         <!-- 房源卡片区域 -->
         <div class="house-cards-section">
-          <div v-if="houseList.length === 0" class="empty-state">
-            <el-empty description="暂无房源数据" />
+          <div v-if="filteredHouseList.length === 0" class="empty-state">
+            <el-empty description="暂无符合条件的房源" />
           </div>
           <div v-else class="house-cards-grid">
             <div
-              v-for="house in houseList"
+              v-for="house in filteredHouseList"
               :key="house.id"
               class="house-card"
               @click="viewHouseDetail(house)"
@@ -68,6 +70,10 @@
               </div>
               <div class="house-info">
                 <div class="house-name">{{ house.name }}</div>
+                <div class="house-details">
+                  <div class="house-address">{{ house.address }}</div>
+                  <div class="house-price">¥{{ formatPrice(house.price) }}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -200,19 +206,19 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { Search, RefreshLeft } from '@element-plus/icons-vue'
 import { propertiesApi, infoApi } from '@/api/index'
 
 const router = useRouter()
 
 // 房源相关数据
-const selectedAreas = ref([])
-const selectedPrices = ref([])
-const searchKeyword = ref('')
 const houseObject = ref({
   address: '',
-  price: ''
+  minPrice: null,
+  maxPrice: null
 })
 const houseList = ref([])
+const allHouseData = ref([]) // 存储完整的房源数据用于筛选
 
 // 资讯相关数据
 const infoList = ref([])
@@ -246,6 +252,29 @@ const tagMap = {
   9: '市场',
   10: '指南'
 }
+
+// 计算筛选后的房源列表
+const filteredHouseList = computed(() => {
+  let filtered = [...houseList.value]
+
+  // 地区筛选（模糊匹配）
+  if (houseObject.value.address && houseObject.value.address.trim()) {
+    const keyword = houseObject.value.address.trim().toLowerCase()
+    filtered = filtered.filter(house =>
+      house.address && house.address.toLowerCase().includes(keyword)
+    )
+  }
+
+  // 价格范围筛选
+  if (houseObject.value.minPrice !== null && houseObject.value.minPrice !== undefined) {
+    filtered = filtered.filter(house => house.price >= houseObject.value.minPrice)
+  }
+  if (houseObject.value.maxPrice !== null && houseObject.value.maxPrice !== undefined) {
+    filtered = filtered.filter(house => house.price <= houseObject.value.maxPrice)
+  }
+
+  return filtered
+})
 
 // 计算显示的资讯列表
 const displayedInfos = computed(() => {
@@ -291,7 +320,9 @@ const getHouseList = async () => {
         return {
           id: item.propertyid,
           name: item.title || item.name || '未命名房源',
-          image: imageUrl
+          image: imageUrl,
+          address: item.address || '',
+          price: item.price || 0
         }
       }) : []
       console.log('解析后的房源列表:', houseList.value)
@@ -304,9 +335,9 @@ const getHouseList = async () => {
   } catch (error) {
     console.error('获取房源数据失败:', error)
     // 从错误响应中提取错误信息
-    const errorMsg = error.response?.data?.errorMsg || 
-                     error.response?.data?.message || 
-                     error.message || 
+    const errorMsg = error.response?.data?.errorMsg ||
+                     error.response?.data?.message ||
+                     error.message ||
                      '获取房源数据失败，请稍后重试'
     ElMessage.error(errorMsg)
     houseList.value = []
@@ -335,9 +366,9 @@ const getInfoList = async () => {
   } catch (error) {
     console.error('获取资讯数据失败:', error)
     // 从错误响应中提取错误信息
-    const errorMsg = error.response?.data?.errorMsg || 
-                     error.response?.data?.message || 
-                     error.message || 
+    const errorMsg = error.response?.data?.errorMsg ||
+                     error.response?.data?.message ||
+                     error.message ||
                      '获取资讯数据失败，请稍后重试'
     ElMessage.error(errorMsg)
     infoList.value = []
@@ -349,7 +380,24 @@ const getInfoList = async () => {
 // 房源查询
 const onSubmit = () => {
   console.log('查询条件:', houseObject.value)
-  // 这里可以添加具体的筛选逻辑
+  // 筛选逻辑已通过 computed 属性 filteredHouseList 自动实现
+  ElMessage.success(`找到 ${filteredHouseList.value.length} 个符合条件的房源`)
+}
+
+// 重置搜索
+const resetSearch = () => {
+  houseObject.value = {
+    address: '',
+    minPrice: null,
+    maxPrice: null
+  }
+  ElMessage.info('已重置搜索条件')
+}
+
+// 格式化价格
+const formatPrice = (price) => {
+  if (!price || price === 0) return '0'
+  return price.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
 }
 
 // 查看房源详情
@@ -449,6 +497,8 @@ onMounted(() => {
     .section-header {
       background: white;
       border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
 
       h3 {
         margin: 0 0 15px 0;
@@ -457,8 +507,19 @@ onMounted(() => {
         color: #333;
       }
 
-      .el-form {
+      .house-search-form {
         margin: 0;
+
+        .price-range-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .price-separator {
+            color: #909399;
+            font-weight: 500;
+          }
+        }
       }
     }
 
@@ -513,8 +574,28 @@ onMounted(() => {
               font-size: 14px;
               font-weight: 500;
               color: #333;
-              text-align: center;
               line-height: 1.4;
+              margin-bottom: 8px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .house-details {
+              .house-address {
+                font-size: 12px;
+                color: #909399;
+                margin-bottom: 4px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+
+              .house-price {
+                font-size: 14px;
+                color: #f56c6c;
+                font-weight: 600;
+              }
             }
           }
         }
@@ -616,7 +697,7 @@ onMounted(() => {
         text-align: center;
         padding: 20px 0;
       }
-      
+
       .empty-state {
         display: flex;
         justify-content: center;
@@ -626,7 +707,7 @@ onMounted(() => {
       }
     }
   }
-  
+
   .empty-state {
     display: flex;
     justify-content: center;

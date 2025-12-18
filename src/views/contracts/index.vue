@@ -2,12 +2,36 @@
   <div class="contracts-management">
     <div class="search-section">
       <el-form :model="searchForm" inline class="search-form">
+        <el-form-item label="合同编号">
+          <el-input
+            v-model="searchForm.contractId"
+            placeholder="输入合同编号"
+            clearable
+            style="width: 160px"
+          />
+        </el-form-item>
+        <el-form-item label="房源关键词">
+          <el-input
+            v-model="searchForm.houseKeyword"
+            placeholder="房源标题或地址"
+            clearable
+            style="width: 180px"
+          />
+        </el-form-item>
+        <el-form-item label="买家姓名">
+          <el-input
+            v-model="searchForm.buyerName"
+            placeholder="输入买家姓名"
+            clearable
+            style="width: 160px"
+          />
+        </el-form-item>
         <el-form-item label="合同状态">
           <el-select
             v-model="searchForm.contractstatus"
             placeholder="请选择合同状态"
             clearable
-            style="width: 200px"
+            style="width: 140px"
           >
             <el-option label="待审核" value="待审核" />
             <el-option label="已签订" value="已签订" />
@@ -22,7 +46,28 @@
             start-placeholder="开始日期"
             end-placeholder="结束日期"
             value-format="YYYY-MM-DD"
+            style="width: 260px"
           />
+        </el-form-item>
+        <el-form-item label="价格范围">
+          <div class="price-range-wrapper">
+            <el-input-number
+              v-model="searchForm.minPrice"
+              :min="0"
+              :max="searchForm.maxPrice || 9999999999"
+              placeholder="最低价"
+              controls-position="right"
+              style="width: 130px"
+            />
+            <span class="price-separator">-</span>
+            <el-input-number
+              v-model="searchForm.maxPrice"
+              :min="searchForm.minPrice || 0"
+              placeholder="最高价"
+              controls-position="right"
+              style="width: 130px"
+            />
+          </div>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">
@@ -166,6 +211,7 @@
         <div class="pagination-wrapper">
           <div class="pagination-info">
             第{{ pagination.page }}页 共{{ Math.ceil(pagination.total / pagination.size)
+
 
 
 
@@ -437,8 +483,13 @@ const isAdmin = computed(() => {
 
 // 搜索表单
 const searchForm = reactive({
+  contractId: '',
+  houseKeyword: '',
+  buyerName: '',
   contractstatus: '',
-  dateRange: []
+  dateRange: [],
+  minPrice: null,
+  maxPrice: null
 })
 
 // 分页
@@ -487,6 +538,31 @@ const pendingContractId = computed(() => {
 const filteredContracts = computed(() => {
   let filtered = [...contractsList.value]
 
+  // 合同编号过滤
+  if (searchForm.contractId && searchForm.contractId.trim()) {
+    const keyword = searchForm.contractId.trim()
+    filtered = filtered.filter(contract =>
+      contract.contractid && contract.contractid.toString().includes(keyword)
+    )
+  }
+
+  // 房源关键词过滤（标题或地址）
+  if (searchForm.houseKeyword && searchForm.houseKeyword.trim()) {
+    const keyword = searchForm.houseKeyword.trim().toLowerCase()
+    filtered = filtered.filter(contract =>
+      (contract.houseTitle && contract.houseTitle.toLowerCase().includes(keyword)) ||
+      (contract.houseAddress && contract.houseAddress.toLowerCase().includes(keyword))
+    )
+  }
+
+  // 买家姓名过滤
+  if (searchForm.buyerName && searchForm.buyerName.trim()) {
+    const keyword = searchForm.buyerName.trim().toLowerCase()
+    filtered = filtered.filter(contract =>
+      contract.buyerName && contract.buyerName.toLowerCase().includes(keyword)
+    )
+  }
+
   // 状态过滤
   if (searchForm.contractstatus) {
     filtered = filtered.filter(contract =>
@@ -501,6 +577,18 @@ const filteredContracts = computed(() => {
       const signingDate = contract.signingdate
       return signingDate >= startDate && signingDate <= endDate
     })
+  }
+
+  // 价格范围过滤
+  if (searchForm.minPrice !== null && searchForm.minPrice !== undefined) {
+    filtered = filtered.filter(contract =>
+      contract.housePrice >= searchForm.minPrice
+    )
+  }
+  if (searchForm.maxPrice !== null && searchForm.maxPrice !== undefined) {
+    filtered = filtered.filter(contract =>
+      contract.housePrice <= searchForm.maxPrice
+    )
   }
 
   return filtered
@@ -589,13 +677,20 @@ const refreshContracts = () => {
 // 处理搜索
 const handleSearch = () => {
   pagination.page = 1
+  ElMessage.success(`找到 ${filteredContracts.value.length} 个符合条件的合同`)
 }
 
 // 重置搜索
 const resetSearch = () => {
+  searchForm.contractId = ''
+  searchForm.houseKeyword = ''
+  searchForm.buyerName = ''
   searchForm.contractstatus = ''
   searchForm.dateRange = []
+  searchForm.minPrice = null
+  searchForm.maxPrice = null
   pagination.page = 1
+  ElMessage.info('已重置搜索条件')
 }
 
 // 处理选择变化
@@ -993,10 +1088,24 @@ const getStatusTagType = (status) => {
 
   .search-section {
     margin-bottom: 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
 
     .search-form {
       .el-form-item {
-        margin-bottom: 0;
+        margin-bottom: 10px;
+      }
+
+      .price-range-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .price-separator {
+          color: #909399;
+          font-weight: 500;
+        }
       }
     }
   }
