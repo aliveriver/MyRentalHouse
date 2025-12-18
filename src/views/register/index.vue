@@ -226,7 +226,7 @@ const onSubmit = async () => {
           // 注册成功后，清除之前的登录状态和token，确保跳转到登录页
           removeToken()
           store.logout()
-          
+
           ElMessage.success('注册成功！请前往登录')
           // 使用 replace 而不是 push，避免用户通过返回按钮回到注册页
           router.replace('/login')
