@@ -2,12 +2,7 @@
   <div class="createuser-container">
     <!-- 左侧装饰区域 -->
     <div class="left-section">
-      <div class="decoration-icon">
-        <div class="mountain-icon">
-          <div class="circle"></div>
-          <div class="mountain"></div>
-        </div>
-      </div>
+      <!-- 背景图已通过 CSS 设置 -->
     </div>
 
     <!-- 右侧注册表单区域 -->
@@ -265,46 +260,14 @@ const goToLogin = () => {
 
   .left-section {
     flex: 3;
-    background-color: #e8e8e8;
+    background-image: url('@/assets/login-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
-
-    .decoration-icon {
-      .mountain-icon {
-        position: relative;
-
-        .circle {
-          width: 80px;
-          height: 80px;
-          border-radius: 50%;
-          background-color: #c0c0c0;
-          margin: 0 auto 20px;
-        }
-
-        .mountain {
-          width: 0;
-          height: 0;
-          border-left: 100px solid transparent;
-          border-right: 100px solid transparent;
-          border-bottom: 120px solid #a8a8a8;
-          position: relative;
-
-          &::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: -80px;
-            width: 0;
-            height: 0;
-            border-left: 80px solid transparent;
-            border-right: 80px solid transparent;
-            border-bottom: 100px solid #969696;
-          }
-        }
-      }
-    }
   }
 
   .right-section {
@@ -468,10 +431,6 @@ const goToLogin = () => {
 
     .left-section {
       height: 25vh;
-
-      .decoration-icon .mountain-icon {
-        transform: scale(0.7);
-      }
     }
 
     .right-section {
